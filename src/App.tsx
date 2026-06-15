@@ -5,6 +5,7 @@ import { CategorySelector } from './components/CategorySelector'
 import { SentenceCard } from './components/SentenceCard'
 import { WordBreakdown } from './components/WordBreakdown'
 import { PhrasePractice } from './components/PhrasePractice'
+import { ConversationExamples } from './components/ConversationExamples'
 import { RecordButton, type RecordState } from './components/RecordButton'
 import { useSpeechRecognition } from './hooks/useSpeechRecognition'
 import { matchesKeyword } from './utils/evaluateSpeech'
@@ -122,6 +123,7 @@ function App() {
           onPressStart={handlePressStart}
           onPressEnd={handlePressEnd}
         />
+        {selectedCategory === 'first-conversation' && <ConversationExamples />}
       </main>
 
       <footer className="app-footer">

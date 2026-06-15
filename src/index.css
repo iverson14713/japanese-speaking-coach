@@ -391,6 +391,86 @@ body {
   transform: scale(0.93);
 }
 
+/* ── Conversation Examples ── */
+
+.conversation-examples {
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  border: 1px solid var(--color-border);
+}
+
+.conversation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.conversation-card {
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  padding: 14px;
+}
+
+.conversation-number {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  margin-bottom: 10px;
+  letter-spacing: 0.04em;
+}
+
+.conversation-lines {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.conversation-line {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+}
+
+.conversation-line--them {
+  background: #f5f5f4;
+}
+
+.conversation-line--you {
+  background: var(--color-accent-light);
+  border: 1px solid #c8e6d4;
+}
+
+.conversation-role {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.conversation-jp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.conversation-japanese {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.45;
+  flex: 1;
+}
+
+.conversation-chinese {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
 /* ── Word Breakdown ── */
 
 .word-breakdown {
