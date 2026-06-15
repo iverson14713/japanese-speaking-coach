@@ -3,6 +3,7 @@ import { LANGUAGE_LABELS } from '../data/types'
 import {
   dialogueScenarios,
   hasDialoguesForLanguage,
+  hasScriptsForCategory,
   type DialogueCategoryId,
 } from '../data/dialogues'
 import { LanguageSelector } from './LanguageSelector'
@@ -35,18 +36,34 @@ export function DialoguePage({ language, onLanguageChange, onSelectScenario }: D
           </div>
         ) : (
           <ul className="scenario-list">
-            {dialogueScenarios.map((scenario) => (
-              <li key={scenario.category}>
-                <button
-                  type="button"
-                  className="scenario-card"
-                  onClick={() => onSelectScenario(scenario.category)}
-                >
-                  <span className="scenario-card-name">{scenario.name}</span>
-                  <span className="scenario-card-desc">「{scenario.descriptionZh}」</span>
-                </button>
-              </li>
-            ))}
+            {dialogueScenarios.map((scenario) => {
+              const isAvailable = hasScriptsForCategory(language, scenario.category)
+
+              if (isAvailable) {
+                return (
+                  <li key={scenario.category}>
+                    <button
+                      type="button"
+                      className="scenario-card"
+                      onClick={() => onSelectScenario(scenario.category)}
+                    >
+                      <span className="scenario-card-name">{scenario.name}</span>
+                      <span className="scenario-card-desc">「{scenario.descriptionZh}」</span>
+                    </button>
+                  </li>
+                )
+              }
+
+              return (
+                <li key={scenario.category}>
+                  <div className="scenario-card scenario-card--upcoming" aria-disabled="true">
+                    <span className="scenario-card-name">{scenario.name}</span>
+                    <span className="scenario-card-desc">「{scenario.descriptionZh}」</span>
+                    <span className="scenario-card-badge">即將補齊</span>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         )}
       </main>

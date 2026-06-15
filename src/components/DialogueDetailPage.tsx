@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Language } from '../data/types'
 import {
   getDialogueScenario,
@@ -18,7 +18,13 @@ export function DialogueDetailPage({ language, category, onBack }: DialogueDetai
   const scenario = getDialogueScenario(category)
   const scripts = getScriptsByCategory(language, category)
 
-  if (!scenario) {
+  useEffect(() => {
+    if (scripts.length === 0) {
+      onBack()
+    }
+  }, [scripts.length, onBack])
+
+  if (!scenario || scripts.length === 0) {
     return null
   }
 
@@ -37,24 +43,17 @@ export function DialogueDetailPage({ language, category, onBack }: DialogueDetai
       </header>
 
       <main className="app-main dialogue-detail-main">
-        {scripts.length === 0 ? (
-          <div className="dialogue-coming-soon" role="status">
-            <p className="dialogue-coming-soon-text">此情境完整劇本準備中</p>
-            <p className="dialogue-coming-soon-hint">可先練習其他已有劇本的情境</p>
-          </div>
-        ) : (
-          <div className="script-list">
-            {scripts.map((script) => (
-              <DialogueScriptCard
-                key={script.id}
-                script={script}
-                language={language}
-                isExpanded={expandedScriptId === script.id}
-                onToggle={() => handleToggle(script.id)}
-              />
-            ))}
-          </div>
-        )}
+        <div className="script-list">
+          {scripts.map((script) => (
+            <DialogueScriptCard
+              key={script.id}
+              script={script}
+              language={language}
+              isExpanded={expandedScriptId === script.id}
+              onToggle={() => handleToggle(script.id)}
+            />
+          ))}
+        </div>
       </main>
     </>
   )

@@ -2,25 +2,28 @@ import { useState } from 'react'
 import type { Language } from './data/types'
 import type { DialogueCategoryId } from './data/dialogues'
 import { BottomTabBar, type AppTab } from './components/BottomTabBar'
+import { TodayPage } from './components/TodayPage'
 import { SentencePracticePage } from './components/SentencePracticePage'
 import { DialoguePage } from './components/DialoguePage'
 import { DialogueDetailPage } from './components/DialogueDetailPage'
 
 function App() {
-  const [activeTab, setActiveTab] = useState<AppTab>('practice')
+  const [activeTab, setActiveTab] = useState<AppTab>('today')
   const [language, setLanguage] = useState<Language>('ja')
   const [dialogueCategory, setDialogueCategory] = useState<DialogueCategoryId | null>(null)
 
   const handleTabChange = (tab: AppTab) => {
     setActiveTab(tab)
-    if (tab === 'practice') {
+    if (tab !== 'dialogue') {
       setDialogueCategory(null)
     }
   }
 
   return (
     <div className="app">
-      {activeTab === 'practice' ? (
+      {activeTab === 'today' ? (
+        <TodayPage language={language} onLanguageChange={setLanguage} />
+      ) : activeTab === 'library' ? (
         <SentencePracticePage language={language} onLanguageChange={setLanguage} />
       ) : dialogueCategory ? (
         <DialogueDetailPage

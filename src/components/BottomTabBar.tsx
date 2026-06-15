@@ -1,4 +1,4 @@
-export type AppTab = 'practice' | 'dialogue'
+export type AppTab = 'today' | 'library' | 'dialogue'
 
 interface BottomTabBarProps {
   activeTab: AppTab
@@ -6,8 +6,9 @@ interface BottomTabBarProps {
 }
 
 const TABS: { id: AppTab; label: string }[] = [
-  { id: 'practice', label: '句子練習' },
-  { id: 'dialogue', label: '情境對話' },
+  { id: 'today', label: '今日' },
+  { id: 'library', label: '句庫' },
+  { id: 'dialogue', label: '情境' },
 ]
 
 export function BottomTabBar({ activeTab, onTabChange }: BottomTabBarProps) {
