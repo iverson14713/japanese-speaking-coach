@@ -12,6 +12,7 @@ import { SentenceCard } from './SentenceCard'
 import { PhrasePractice } from './PhrasePractice'
 import { RecordButton, type RecordState } from './RecordButton'
 import { WeeklyProgress } from './WeeklyProgress'
+import { StreakPetCard } from './StreakPetCard'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { matchesKeyword } from '../utils/evaluateSpeech'
 
@@ -112,19 +113,7 @@ export function TodayPage({ language, onLanguageChange }: TodayPageProps) {
 
       <LanguageSelector selected={language} onSelect={handleLanguageChange} />
 
-      <section className="today-streak-card" aria-label="連續練習天數">
-        {completedToday ? (
-          <>
-            <p className="today-streak-fire">🔥 連續練習 {streak} 天</p>
-            <p className="today-complete-message">今天完成了！</p>
-          </>
-        ) : (
-          <>
-            <p className="today-streak-fire">🔥 連續練習 {streak} 天</p>
-            <p className="today-streak-hint">今天完成後，連續天數會更新</p>
-          </>
-        )}
-      </section>
+      <StreakPetCard todayCompleted={completedToday} streakCount={streak} />
 
       <WeeklyProgress completedDates={completedDates} />
 
