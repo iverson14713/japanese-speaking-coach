@@ -6,14 +6,18 @@ import sharp from 'sharp'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.resolve(__dirname, '..')
 
-const sourceIcon = path.resolve(
-  rootDir,
-  '../.cursor/projects/c-Users-USER-JapaneseSpeakingCoach/assets/c__Users_USER_AppData_Roaming_Cursor_User_workspaceStorage_9f0f53e24b5e4d0b470448c6db2c8e37_images_ChatGPT_Image_2026_6_15____03_48_37-aab71196-0b16-4612-a832-2ca305baf6b0.png',
-)
+const sourceCandidates = [
+  path.resolve(
+    rootDir,
+    '../.cursor/projects/c-Users-USER-JapaneseSpeakingCoach/assets/c__Users_USER_AppData_Roaming_Cursor_User_workspaceStorage_9f0f53e24b5e4d0b470448c6db2c8e37_images_ChatGPT_Image_2026_6_15____03_48_37-aab71196-0b16-4612-a832-2ca305baf6b0.png',
+  ),
+  path.resolve(rootDir, 'ios/App/App/Assets.xcassets/AppIcon.appiconset/icon-1024.png'),
+]
 
-const outputDir = path.resolve(rootDir, 'ios/App/App/Assets.xcassets/AppIcon.appiconset')
+const iosOutputDir = path.resolve(rootDir, 'ios/App/App/Assets.xcassets/AppIcon.appiconset')
+const publicOutputDir = path.resolve(rootDir, 'public')
 
-const ICON_SIZES = [
+const IOS_ICON_SIZES = [
   { name: 'icon-20@2x.png', size: 40, idiom: 'iphone', scale: '2x', sizeLabel: '20x20' },
   { name: 'icon-20@3x.png', size: 60, idiom: 'iphone', scale: '3x', sizeLabel: '20x20' },
   { name: 'icon-29@2x.png', size: 58, idiom: 'iphone', scale: '2x', sizeLabel: '29x29' },
@@ -32,6 +36,13 @@ const ICON_SIZES = [
   { name: 'icon-76@2x.png', size: 152, idiom: 'ipad', scale: '2x', sizeLabel: '76x76' },
   { name: 'icon-83.5@2x.png', size: 167, idiom: 'ipad', scale: '2x', sizeLabel: '83.5x83.5' },
   { name: 'icon-1024.png', size: 1024, idiom: 'ios-marketing', scale: '1x', sizeLabel: '1024x1024' },
+]
+
+const PUBLIC_ICON_SIZES = [
+  { name: 'apple-touch-icon.png', size: 180 },
+  { name: 'icon-192.png', size: 192 },
+  { name: 'icon-512.png', size: 512 },
+  { name: 'favicon.png', size: 48 },
 ]
 
 function lerp(a, b, t) {
@@ -100,8 +111,24 @@ async function createFullBleedMaster(inputPath) {
     .toBuffer()
 }
 
+async function writeOpaqueIcon(masterPng, outputPath, size) {
+  await sharp(masterPng)
+    .resize(size, size, {
+      fit: 'cover',
+      kernel: sharp.kernel.lanczos3,
+    })
+    .removeAlpha()
+    .png({ compressionLevel: 9, force: true })
+    .toFile(outputPath)
+
+  const meta = await sharp(outputPath).metadata()
+  if (meta.hasAlpha) {
+    throw new Error(`${path.basename(outputPath)} still has alpha channel`)
+  }
+}
+
 function buildContentsJson() {
-  const images = ICON_SIZES.map((icon) => ({
+  const images = IOS_ICON_SIZES.map((icon) => ({
     filename: icon.name,
     idiom: icon.idiom,
     scale: icon.scale,
@@ -117,35 +144,39 @@ function buildContentsJson() {
   }
 }
 
-async function main() {
-  if (!fs.existsSync(sourceIcon)) {
-    throw new Error(`Source icon not found: ${sourceIcon}`)
-  }
-
-  fs.mkdirSync(outputDir, { recursive: true })
-
-  const masterPng = await createFullBleedMaster(sourceIcon)
-
-  for (const icon of ICON_SIZES) {
-    const outputPath = path.join(outputDir, icon.name)
-    await sharp(masterPng)
-      .resize(icon.size, icon.size, {
-        fit: 'cover',
-        kernel: sharp.kernel.lanczos3,
-      })
-      .removeAlpha()
-      .png({ compressionLevel: 9, force: true })
-      .toFile(outputPath)
-
-    const meta = await sharp(outputPath).metadata()
-    if (meta.hasAlpha) {
-      throw new Error(`${icon.name} still has alpha channel`)
+function resolveSourceIcon() {
+  for (const candidate of sourceCandidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate
     }
   }
 
-  fs.writeFileSync(path.join(outputDir, 'Contents.json'), `${JSON.stringify(buildContentsJson(), null, 2)}\n`)
+  throw new Error(`Source icon not found. Checked:\n${sourceCandidates.join('\n')}`)
+}
 
-  console.log(`Generated ${ICON_SIZES.length} icons in ${outputDir}`)
+async function main() {
+  const sourceIcon = resolveSourceIcon()
+  console.log(`Using source icon: ${sourceIcon}`)
+
+  fs.mkdirSync(iosOutputDir, { recursive: true })
+  fs.mkdirSync(publicOutputDir, { recursive: true })
+
+  const masterPng = await createFullBleedMaster(sourceIcon)
+
+  for (const icon of IOS_ICON_SIZES) {
+    const outputPath = path.join(iosOutputDir, icon.name)
+    await writeOpaqueIcon(masterPng, outputPath, icon.size)
+  }
+
+  for (const icon of PUBLIC_ICON_SIZES) {
+    const outputPath = path.join(publicOutputDir, icon.name)
+    await writeOpaqueIcon(masterPng, outputPath, icon.size)
+  }
+
+  fs.writeFileSync(path.join(iosOutputDir, 'Contents.json'), `${JSON.stringify(buildContentsJson(), null, 2)}\n`)
+
+  console.log(`Generated ${IOS_ICON_SIZES.length} iOS icons in ${iosOutputDir}`)
+  console.log(`Generated ${PUBLIC_ICON_SIZES.length} PWA icons in ${publicOutputDir}`)
 }
 
 main().catch((error) => {
