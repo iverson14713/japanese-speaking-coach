@@ -1,6 +1,5 @@
 import type { PhraseChunk } from '../data/sentences'
 import type { Language } from '../data/types'
-import { StepHeader } from './StepHeader'
 import { SpeakButton } from './SpeakButton'
 
 interface PhrasePracticeProps {
@@ -10,20 +9,21 @@ interface PhrasePracticeProps {
 
 export function PhrasePractice({ chunks, language }: PhrasePracticeProps) {
   return (
-    <section className="phrase-practice" aria-label="拆音練習">
-      <StepHeader step="②" title="分段跟讀" />
-      <p className="section-hint">點喇叭聽每一段，再慢慢跟著念</p>
+    <section className="phrase-practice" aria-label="分段練習">
+      <h2 className="section-label">分段練習</h2>
       <ul className="phrase-list">
         {chunks.map((chunk) => (
-          <li key={chunk.text} className="phrase-item">
-            <div className="phrase-content">
-              <p className="phrase-text">{chunk.text}</p>
-              {chunk.pronunciation !== chunk.text ? (
-                <p className="phrase-pronunciation">{chunk.pronunciation}</p>
-              ) : null}
-              <p className="phrase-chinese">{chunk.chinese}</p>
+          <li key={chunk.text} className="phrase-row">
+            <div className="phrase-row-content">
+              <p className="phrase-row-text">{chunk.text}</p>
+              <p className="phrase-row-meaning">{chunk.chinese}</p>
             </div>
-            <SpeakButton text={chunk.text} language={language} label={`播放 ${chunk.text}`} />
+            <SpeakButton
+              text={chunk.text}
+              language={language}
+              size="small"
+              label={`播放 ${chunk.text}`}
+            />
           </li>
         ))}
       </ul>

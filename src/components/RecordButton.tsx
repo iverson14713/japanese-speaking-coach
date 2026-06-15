@@ -1,5 +1,3 @@
-import { StepHeader } from './StepHeader'
-
 export type RecordState = 'idle' | 'recording' | 'processing' | 'feedback'
 
 interface RecordButtonProps {
@@ -33,7 +31,7 @@ export function RecordButton({
 
   return (
     <div className="record-section">
-      <StepHeader step="③" title="整句跟讀" />
+      <h2 className="section-label">整句跟讀</h2>
 
       {!isSupported && (
         <p className="unsupported-message" role="alert">
@@ -56,19 +54,19 @@ export function RecordButton({
         onPointerLeave={isRecording ? onPressEnd : undefined}
         onPointerCancel={onPressEnd}
         aria-pressed={isActive}
-        aria-label="先聽，再跟著念"
+        aria-label="按住跟讀"
         aria-disabled={!isSupported}
       >
         <span className="record-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
             <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
             <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
           </svg>
         </span>
-        <span className="record-label">先聽，再跟著念</span>
+        <span className="record-label">按住跟讀</span>
       </button>
 
-      <p className="record-hint">不會沒關係，先聽 AI 示範一次</p>
+      <p className="record-hint">不會沒關係，先聽再說</p>
 
       {isActive && (
         <p className="status-message listening" role="status">

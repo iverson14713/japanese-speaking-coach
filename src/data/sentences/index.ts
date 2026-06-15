@@ -32,3 +32,19 @@ export function getDefaultCategory(language: Language): CategoryId {
   const categories = getCategoriesForLanguage(language)
   return categories[0] ?? 'first-conversation'
 }
+
+export function getTotalSentenceCount(language: Language): number {
+  return getSentencesByLanguage(language).length
+}
+
+export function getLibraryHint(language: Language): string {
+  const count = getTotalSentenceCount(language)
+  switch (language) {
+    case 'ja':
+      return `${count} 句日本旅行常用口說`
+    case 'en':
+      return `${count} 句旅行英文口說`
+    case 'ko':
+      return `${count} 句旅行韓文口說`
+  }
+}
