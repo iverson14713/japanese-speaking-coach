@@ -5,6 +5,8 @@ export const categories = [
   { id: 'directions', label: '問路交通' },
   { id: 'hotel', label: '飯店入住' },
   { id: 'shopping', label: '購物付款' },
+  { id: 'pharmacy', label: '藥妝店/免稅' },
+  { id: 'emergency', label: '緊急求助' },
 ] as const
 
 export type CategoryId = (typeof categories)[number]['id']
