@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { Language } from '../data/types'
 import {
   getDialogueScenario,
@@ -18,14 +18,27 @@ export function DialogueDetailPage({ language, category, onBack }: DialogueDetai
   const scenario = getDialogueScenario(category)
   const scripts = getScriptsByCategory(language, category)
 
-  useEffect(() => {
-    if (scripts.length === 0) {
-      onBack()
-    }
-  }, [scripts.length, onBack])
-
-  if (!scenario || scripts.length === 0) {
+  if (!scenario) {
     return null
+  }
+
+  if (scripts.length === 0) {
+    return (
+      <>
+        <header className="dialogue-detail-header">
+          <button type="button" className="dialogue-back-button" onClick={onBack}>
+            ← 返回情境列表
+          </button>
+          <h1 className="dialogue-detail-title">{scenario.name}</h1>
+        </header>
+        <main className="app-main dialogue-detail-main">
+          <div className="dialogue-coming-soon" role="status">
+            <p className="dialogue-coming-soon-text">此情境劇本準備中</p>
+            <p className="dialogue-coming-soon-hint">可先練習其他已有劇本的情境</p>
+          </div>
+        </main>
+      </>
+    )
   }
 
   const handleToggle = (scriptId: string) => {

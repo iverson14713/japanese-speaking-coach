@@ -1,8 +1,6 @@
 import type { Language } from '../data/types'
-import { LANGUAGE_LABELS } from '../data/types'
 import {
   dialogueScenarios,
-  hasDialoguesForLanguage,
   hasScriptsForCategory,
   type DialogueCategoryId,
 } from '../data/dialogues'
@@ -15,8 +13,6 @@ interface DialoguePageProps {
 }
 
 export function DialoguePage({ language, onLanguageChange, onSelectScenario }: DialoguePageProps) {
-  const hasContent = hasDialoguesForLanguage(language)
-
   return (
     <>
       <header className="dialogue-header">
@@ -27,45 +23,36 @@ export function DialoguePage({ language, onLanguageChange, onSelectScenario }: D
       <LanguageSelector selected={language} onSelect={onLanguageChange} />
 
       <main className="app-main dialogue-main">
-        {!hasContent ? (
-          <div className="dialogue-coming-soon" role="status">
-            <p className="dialogue-coming-soon-text">
-              {LANGUAGE_LABELS[language]}情境對話準備中
-            </p>
-            <p className="dialogue-coming-soon-hint">目前可先使用日文情境對話</p>
-          </div>
-        ) : (
-          <ul className="scenario-list">
-            {dialogueScenarios.map((scenario) => {
-              const isAvailable = hasScriptsForCategory(language, scenario.category)
+        <ul className="scenario-list">
+          {dialogueScenarios.map((scenario) => {
+            const isAvailable = hasScriptsForCategory(language, scenario.category)
 
-              if (isAvailable) {
-                return (
-                  <li key={scenario.category}>
-                    <button
-                      type="button"
-                      className="scenario-card"
-                      onClick={() => onSelectScenario(scenario.category)}
-                    >
-                      <span className="scenario-card-name">{scenario.name}</span>
-                      <span className="scenario-card-desc">「{scenario.descriptionZh}」</span>
-                    </button>
-                  </li>
-                )
-              }
-
+            if (isAvailable) {
               return (
                 <li key={scenario.category}>
-                  <div className="scenario-card scenario-card--upcoming" aria-disabled="true">
+                  <button
+                    type="button"
+                    className="scenario-card"
+                    onClick={() => onSelectScenario(scenario.category)}
+                  >
                     <span className="scenario-card-name">{scenario.name}</span>
                     <span className="scenario-card-desc">「{scenario.descriptionZh}」</span>
-                    <span className="scenario-card-badge">即將補齊</span>
-                  </div>
+                  </button>
                 </li>
               )
-            })}
-          </ul>
-        )}
+            }
+
+            return (
+              <li key={scenario.category}>
+                <div className="scenario-card scenario-card--upcoming" aria-disabled="true">
+                  <span className="scenario-card-name">{scenario.name}</span>
+                  <span className="scenario-card-desc">「{scenario.descriptionZh}」</span>
+                  <span className="scenario-card-badge">即將補齊</span>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
       </main>
     </>
   )

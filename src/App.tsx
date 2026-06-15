@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import type { Language } from './data/types'
 import type { DialogueCategoryId } from './data/dialogues'
 import { BottomTabBar, type AppTab } from './components/BottomTabBar'
@@ -12,6 +12,15 @@ function App() {
   const [language, setLanguage] = useState<Language>('ja')
   const [dialogueCategory, setDialogueCategory] = useState<DialogueCategoryId | null>(null)
 
+  const handleLanguageChange = useCallback((nextLanguage: Language) => {
+    setLanguage(nextLanguage)
+    setDialogueCategory(null)
+  }, [])
+
+  const handleDialogueBack = useCallback(() => {
+    setDialogueCategory(null)
+  }, [])
+
   const handleTabChange = (tab: AppTab) => {
     setActiveTab(tab)
     if (tab !== 'dialogue') {
@@ -22,19 +31,20 @@ function App() {
   return (
     <div className="app">
       {activeTab === 'today' ? (
-        <TodayPage language={language} onLanguageChange={setLanguage} />
+        <TodayPage language={language} onLanguageChange={handleLanguageChange} />
       ) : activeTab === 'library' ? (
-        <SentencePracticePage language={language} onLanguageChange={setLanguage} />
+        <SentencePracticePage language={language} onLanguageChange={handleLanguageChange} />
       ) : dialogueCategory ? (
         <DialogueDetailPage
+          key={`${language}-${dialogueCategory}`}
           language={language}
           category={dialogueCategory}
-          onBack={() => setDialogueCategory(null)}
+          onBack={handleDialogueBack}
         />
       ) : (
         <DialoguePage
           language={language}
-          onLanguageChange={setLanguage}
+          onLanguageChange={handleLanguageChange}
           onSelectScenario={setDialogueCategory}
         />
       )}
