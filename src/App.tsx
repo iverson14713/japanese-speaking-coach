@@ -1,6 +1,13 @@
 import { useCallback, useMemo, useState } from 'react'
-import { categories, type CategoryId } from './data/categories'
-import { getSentencesByCategory } from './data/sentences'
+import type { CategoryId } from './data/categories'
+import {
+  getCategoriesForLanguage,
+  getDefaultCategory,
+  getSentencesByCategory,
+  SPEECH_LANG,
+  type Language,
+} from './data/sentences'
+import { LanguageSelector } from './components/LanguageSelector'
 import { CategorySelector } from './components/CategorySelector'
 import { SentenceCard } from './components/SentenceCard'
 import { WordBreakdown } from './components/WordBreakdown'
@@ -11,16 +18,21 @@ import { useSpeechRecognition } from './hooks/useSpeechRecognition'
 import { matchesKeyword } from './utils/evaluateSpeech'
 
 function App() {
-  const [selectedCategory, setSelectedCategory] = useState<CategoryId>(categories[0].id)
+  const [language, setLanguage] = useState<Language>('ja')
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId>(() =>
+    getDefaultCategory('ja'),
+  )
   const [sentenceIndex, setSentenceIndex] = useState(0)
   const [recordState, setRecordState] = useState<RecordState>('idle')
   const [transcript, setTranscript] = useState('')
   const [isCorrect, setIsCorrect] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
+  const availableCategories = useMemo(() => getCategoriesForLanguage(language), [language])
+
   const categorySentences = useMemo(
-    () => getSentencesByCategory(selectedCategory),
-    [selectedCategory],
+    () => getSentencesByCategory(language, selectedCategory),
+    [language, selectedCategory],
   )
 
   const currentSentence = categorySentences[sentenceIndex]
@@ -46,7 +58,7 @@ function App() {
   }, [])
 
   const { isSupported, startListening, stopListening } = useSpeechRecognition({
-    lang: 'ja-JP',
+    lang: SPEECH_LANG[language],
     onResult: handleRecognitionResult,
     onError: handleRecognitionError,
   })
@@ -56,6 +68,13 @@ function App() {
     setIsCorrect(false)
     setErrorMessage(null)
     setRecordState('idle')
+  }
+
+  const handleLanguageChange = (nextLanguage: Language) => {
+    setLanguage(nextLanguage)
+    setSelectedCategory(getDefaultCategory(nextLanguage))
+    setSentenceIndex(0)
+    resetFeedback()
   }
 
   const handleCategoryChange = (categoryId: CategoryId) => {
@@ -104,16 +123,21 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <p className="app-subtitle">第一次去日本，也敢開口</p>
-        <h1 className="app-title">日本旅行口說教練</h1>
+        <p className="app-subtitle">出國前，先練會真的用得到的句子</p>
+        <h1 className="app-title">旅行口說教練</h1>
       </header>
 
-      <CategorySelector selected={selectedCategory} onSelect={handleCategoryChange} />
+      <LanguageSelector selected={language} onSelect={handleLanguageChange} />
+
+      <CategorySelector
+        selected={selectedCategory}
+        availableCategories={availableCategories}
+        onSelect={handleCategoryChange}
+      />
 
       <main className="app-main">
-        <SentenceCard sentence={currentSentence} />
-        <WordBreakdown words={currentSentence.wordBreakdown} />
-        <PhrasePractice chunks={currentSentence.phraseChunks} />
+        <SentenceCard sentence={currentSentence} language={language} />
+        <PhrasePractice chunks={currentSentence.phraseChunks} language={language} />
         <RecordButton
           state={recordState}
           transcript={transcript}
@@ -123,7 +147,10 @@ function App() {
           onPressStart={handlePressStart}
           onPressEnd={handlePressEnd}
         />
-        {selectedCategory === 'first-conversation' && <ConversationExamples />}
+        <WordBreakdown key={currentSentence.id} words={currentSentence.wordBreakdown} />
+        {language === 'ja' && selectedCategory === 'first-conversation' && (
+          <ConversationExamples />
+        )}
       </main>
 
       <footer className="app-footer">

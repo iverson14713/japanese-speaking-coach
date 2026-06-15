@@ -1,16 +1,18 @@
-import { speakJapanese } from '../utils/speechSynthesis'
+import type { Language } from '../data/types'
+import { speakText } from '../utils/speechSynthesis'
 
 interface SpeakButtonProps {
   text: string
+  language: Language
   label?: string
 }
 
-export function SpeakButton({ text, label }: SpeakButtonProps) {
+export function SpeakButton({ text, language, label }: SpeakButtonProps) {
   return (
     <button
       type="button"
       className="speak-button"
-      onClick={() => speakJapanese(text)}
+      onClick={() => speakText(text, language)}
       aria-label={label ?? `播放 ${text}`}
     >
       <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" aria-hidden="true">

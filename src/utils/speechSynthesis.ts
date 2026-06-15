@@ -1,4 +1,7 @@
-export function speakJapanese(text: string): void {
+import type { Language } from '../data/types'
+import { SPEECH_LANG } from '../data/types'
+
+export function speakText(text: string, language: Language): void {
   if (!window.speechSynthesis) {
     return
   }
@@ -6,7 +9,7 @@ export function speakJapanese(text: string): void {
   window.speechSynthesis.cancel()
 
   const utterance = new SpeechSynthesisUtterance(text)
-  utterance.lang = 'ja-JP'
-  utterance.rate = 0.85
+  utterance.lang = SPEECH_LANG[language]
+  utterance.rate = language === 'ja' ? 0.85 : 0.9
   window.speechSynthesis.speak(utterance)
 }
