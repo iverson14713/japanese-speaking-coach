@@ -7,10 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.resolve(__dirname, '..')
 
 const sourceCandidates = [
-  path.resolve(
-    rootDir,
-    '../.cursor/projects/c-Users-USER-JapaneseSpeakingCoach/assets/c__Users_USER_AppData_Roaming_Cursor_User_workspaceStorage_9f0f53e24b5e4d0b470448c6db2c8e37_images_ChatGPT_Image_2026_6_15____03_48_37-aab71196-0b16-4612-a832-2ca305baf6b0.png',
-  ),
+  path.resolve(rootDir, 'assets/app-icon-source.png'),
   path.resolve(rootDir, 'ios/App/App/Assets.xcassets/AppIcon.appiconset/icon-1024.png'),
 ]
 
@@ -45,6 +42,9 @@ const PUBLIC_ICON_SIZES = [
   { name: 'favicon.png', size: 48 },
 ]
 
+// Matches app CSS: --color-bg, gradient top, --color-primary-light
+const CREAM_BG = { r: 250, g: 247, b: 242 }
+
 function lerp(a, b, t) {
   return Math.round(a + (b - a) * t)
 }
@@ -53,10 +53,10 @@ function gradientColor(x, y, width, height) {
   const nx = x / (width - 1)
   const ny = y / (height - 1)
 
-  const bottomLeft = [2, 32, 96]
-  const bottomRight = [2, 55, 118]
-  const topLeft = [1, 150, 175]
-  const topRight = [1, 194, 193]
+  const bottomLeft = [250, 247, 242]
+  const bottomRight = [245, 240, 232]
+  const topLeft = [253, 249, 244]
+  const topRight = [253, 240, 235]
 
   const bottom = [
     lerp(bottomLeft[0], bottomRight[0], nx),
@@ -77,8 +77,21 @@ function gradientColor(x, y, width, height) {
   ]
 }
 
+async function createSquareMaster(inputPath) {
+  return sharp(inputPath)
+    .resize(1024, 1024, {
+      fit: 'cover',
+      position: 'centre',
+      background: CREAM_BG,
+      kernel: sharp.kernel.lanczos3,
+    })
+    .png()
+    .toBuffer()
+}
+
 async function createFullBleedMaster(inputPath) {
-  const { data, info } = await sharp(inputPath).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+  const squarePng = await createSquareMaster(inputPath)
+  const { data, info } = await sharp(squarePng).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
   const { width, height, channels } = info
   const output = Buffer.from(data)
 
