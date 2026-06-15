@@ -1,3 +1,5 @@
+import { StepHeader } from './StepHeader'
+
 export type RecordState = 'idle' | 'recording' | 'processing' | 'feedback'
 
 interface RecordButtonProps {
@@ -26,11 +28,13 @@ export function RecordButton({
   const feedbackMessage = errorMessage
     ? errorMessage
     : isCorrect
-      ? '很好！這句大致正確。'
-      : '我聽得不是很清楚，可以再念一次。'
+      ? '很好，已經很接近了！可以再聽一次，讓語氣更自然。'
+      : '沒關係，初學者很正常。先按上面的喇叭聽一次，再跟著念。'
 
   return (
     <div className="record-section">
+      <StepHeader step="③" title="整句跟讀" />
+
       {!isSupported && (
         <p className="unsupported-message" role="alert">
           此瀏覽器不支援語音辨識，請使用 Chrome 桌面版測試。
@@ -52,7 +56,7 @@ export function RecordButton({
         onPointerLeave={isRecording ? onPressEnd : undefined}
         onPointerCancel={onPressEnd}
         aria-pressed={isActive}
-        aria-label="按住跟著念"
+        aria-label="先聽，再跟著念"
         aria-disabled={!isSupported}
       >
         <span className="record-icon" aria-hidden="true">
@@ -61,8 +65,10 @@ export function RecordButton({
             <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
           </svg>
         </span>
-        <span className="record-label">按住跟著念</span>
+        <span className="record-label">先聽，再跟著念</span>
       </button>
+
+      <p className="record-hint">不會沒關係，先聽 AI 示範一次</p>
 
       {isActive && (
         <p className="status-message listening" role="status">

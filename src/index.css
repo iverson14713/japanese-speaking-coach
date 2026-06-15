@@ -61,7 +61,7 @@ body {
 
 .app-header {
   text-align: center;
-  padding: 48px 0 28px;
+  padding: 40px 0 20px;
 }
 
 .app-subtitle {
@@ -72,10 +72,56 @@ body {
 }
 
 .app-title {
-  font-size: 1.75rem;
+  font-size: 1.6rem;
   font-weight: 700;
   color: var(--color-text);
   letter-spacing: 0.04em;
+}
+
+/* ── Category Selector ── */
+
+.category-selector {
+  margin: 0 -20px 4px;
+  padding: 0 20px;
+}
+
+.category-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.category-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.category-button {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  border: 1.5px solid var(--color-border);
+  border-radius: 20px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.category-button.active {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  border-color: var(--color-primary);
+  font-weight: 600;
+}
+
+.category-button:active:not(.active) {
+  background: var(--color-bg);
 }
 
 .app-main {
@@ -91,6 +137,44 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 10px;
+}
+
+.nav-buttons {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+}
+
+.nav-button {
+  flex: 1;
+  padding: 14px 16px;
+  background: var(--color-bg-card);
+  color: var(--color-text);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.nav-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.nav-button:not(:disabled):active {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+.nav-button--primary:not(:disabled) {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+  font-weight: 600;
 }
 
 /* ── Sentence Card ── */
@@ -144,6 +228,167 @@ body {
   color: var(--color-accent);
   padding-top: 14px;
   border-top: 1px dashed var(--color-border);
+  margin-bottom: 16px;
+}
+
+.usage-note {
+  text-align: left;
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-bottom: 20px;
+  border: 1px solid var(--color-border);
+}
+
+.usage-note-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+.usage-note-text {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+}
+
+.listen-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.listen-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  border: 1.5px solid #c8e6d4;
+  border-radius: 24px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.listen-button:active {
+  background: #dff0e8;
+  transform: scale(0.97);
+}
+
+/* ── Step Header ── */
+
+.step-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.step-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: 0.04em;
+}
+
+.section-hint {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+  margin-top: 6px;
+  margin-bottom: 12px;
+}
+
+/* ── Phrase Practice ── */
+
+.phrase-practice {
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  border: 1px solid var(--color-border);
+}
+
+.phrase-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.phrase-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
+.phrase-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.phrase-japanese {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.phrase-romaji {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  margin-top: 2px;
+}
+
+.phrase-chinese {
+  font-size: 0.82rem;
+  color: var(--color-accent);
+  margin-top: 2px;
+}
+
+.speak-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  border: 1.5px solid #c8e6d4;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.speak-button:active {
+  background: #dff0e8;
+  transform: scale(0.93);
 }
 
 /* ── Word Breakdown ── */
@@ -197,8 +442,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  margin-top: 8px;
+  gap: 12px;
+  margin-top: 4px;
 }
 
 .record-button {
@@ -257,6 +502,13 @@ body {
   height: 52px;
   background: rgba(255, 255, 255, 0.2);
   border-radius: 50%;
+}
+
+.record-hint {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+  margin-top: -4px;
 }
 
 .status-message {
@@ -361,26 +613,6 @@ body {
 }
 
 /* ── Footer ── */
-
-.next-button {
-  width: 100%;
-  padding: 14px 24px;
-  background: var(--color-bg-card);
-  color: var(--color-text);
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-family: inherit;
-  font-size: 0.95rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.next-button:active {
-  background: var(--color-primary-light);
-  border-color: var(--color-primary);
-  color: var(--color-primary-dark);
-}
 
 .sentence-counter {
   font-size: 0.8rem;
