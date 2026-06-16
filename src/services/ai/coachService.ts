@@ -366,9 +366,61 @@ function isExplicitHelpRequest(text: string): boolean {
   if (!trimmed) {
     return false
   }
-  return /不會說|不会说|不知道怎麼|怎麼說|怎么说|怎麼講|怎么讲|教.*我說|教我讲|幫我說|帮我说|不會講|不会讲/i.test(
+  return /不會說|不会说|不知道怎麼|怎麼說|怎么说|怎麼講|怎么讲|這句怎麼說|这句怎么说|教.*我說|教我讲|幫我說|帮我说|不會講|不会讲|不會回答|不会回答/i.test(
     trimmed,
   )
+}
+
+function isChineseDominantInput(text: string): boolean {
+  const trimmed = text.trim()
+  if (!trimmed) {
+    return false
+  }
+  if (isExplicitHelpRequest(trimmed)) {
+    return true
+  }
+  if (/^(哈囉|你好|嗨|hi|hello|こんにちは)$/i.test(trimmed)) {
+    return false
+  }
+  const hasCjk = /[\u4e00-\u9fff]/.test(trimmed)
+  const hasJapanese = /[ぁ-んァ-ンー]/.test(trimmed)
+  const hasKorean = /[가-힣]/.test(trimmed)
+  const hasEnglishWords = /\b[a-zA-Z]{2,}\b/.test(trimmed)
+  return hasCjk && !hasJapanese && !hasKorean && !hasEnglishWords
+}
+
+function coachingIntroForLanguage(language: Language): string {
+  if (language === 'en') {
+    return 'You can say:'
+  }
+  return '可以這樣說：'
+}
+
+const TRAIN_TO_TOKYO_PHRASES: Record<
+  Language,
+  { foreign: string; pronunciation?: string; meaningZh: string }
+> = {
+  ja: {
+    foreign: 'この電車は東京に行きますか？',
+    pronunciation: 'kono densha wa Tokyo ni ikimasu ka',
+    meaningZh: '這班電車會到東京嗎？',
+  },
+  en: {
+    foreign: 'Does this train go to Tokyo?',
+    meaningZh: '這班車會到東京嗎？',
+  },
+  ko: {
+    foreign: '이 열차는 도쿄에 가나요?',
+    pronunciation: 'i yeolcha-neun dokyo-e ganayo',
+    meaningZh: '這班列車會到東京嗎？',
+  },
+}
+
+function pickPhraseForChineseMessage(language: Language, message: string, turnIndex: number) {
+  if (/東京|东京|這班車|这班车|電車|电车|火車|火车|train/i.test(message)) {
+    return TRAIN_TO_TOKYO_PHRASES[language]
+  }
+  return pickCoachingPhrase(language, turnIndex)
 }
 
 const COACHING_PHRASES: Record<
@@ -447,14 +499,15 @@ function mockCoachSpeakHelp(
   const trimmed = sentence.trim()
   const phrase = pickCoachingPhrase(language, turnIndex)
 
-  if (isExplicitHelpRequest(trimmed)) {
+  if (isExplicitHelpRequest(trimmed) || isChineseDominantInput(trimmed)) {
+    const phrase = pickPhraseForChineseMessage(language, trimmed, turnIndex)
     return {
       original: trimmed,
       corrected: phrase.foreign,
       pronunciation: phrase.pronunciation,
       meaningZh: phrase.meaningZh,
-      explanationZh: '根據目前情境，這句可以直接開口使用。',
-      naturalnessTipZh: phrase.guidanceZh,
+      explanationZh: coachingIntroForLanguage(language),
+      naturalnessTipZh: '你可以試著說一次。',
     }
   }
 
@@ -498,15 +551,15 @@ function mockConversationReply(
   userTurnIndex: number,
   topic?: TopicChatSession,
 ): ConversationReplyResult {
-  if (isExplicitHelpRequest(userMessage)) {
-    const phrase = pickCoachingPhrase(language, userTurnIndex)
+  if (isExplicitHelpRequest(userMessage) || isChineseDominantInput(userMessage)) {
+    const phrase = pickPhraseForChineseMessage(language, userMessage, userTurnIndex)
     const hints = topic?.hints ?? CUSTOM_HINTS[language]
     return {
-      coachingZh: '沒關係，你可以先用這句：',
+      coachingZh: coachingIntroForLanguage(language),
       reply: phrase.foreign,
       replyPronunciation: phrase.pronunciation,
       replyMeaningZh: phrase.meaningZh,
-      guidanceZh: phrase.guidanceZh,
+      guidanceZh: '你可以試著說一次。',
       hint: hints[userTurnIndex % hints.length],
     }
   }

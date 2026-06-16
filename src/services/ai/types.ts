@@ -124,7 +124,7 @@ export interface TopicConversationRequest {
   userTurnIndex: number
 }
 
-export const COACH_CHAT_INPUT_PLACEHOLDER = '輸入你想練的情境，或直接回覆教練...'
+export const COACH_CHAT_INPUT_PLACEHOLDER = '用中文描述想說的話，或用學習語言回覆教練...'
 
 export const COACH_WELCOME_TEXT =
   '今天想練什麼呢？\n你可以自己開一個旅行情境，\n也可以讓我幫你開一個話題。'

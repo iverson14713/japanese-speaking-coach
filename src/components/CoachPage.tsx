@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { Language } from '../data/types'
-import { SPEECH_LANG } from '../data/types'
+import { LANGUAGE_LABELS, SPEECH_LANG } from '../data/types'
 import {
   COACH_AI_SOURCE_LABELS,
   COACH_CHAT_INPUT_PLACEHOLDER,
@@ -46,6 +46,7 @@ const DEFAULT_PLAN: CoachPlan = 'free'
 
 type CoachPhase = 'welcome' | 'active' | 'ended'
 type ChatMode = 'custom' | 'topic' | null
+type VoiceInputMode = 'zh-coach' | 'practice-language'
 
 function createWelcomeMessages(): ChatMessage[] {
   return [{ role: 'assistant', text: COACH_WELCOME_TEXT, variant: 'welcome' }]
@@ -81,6 +82,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   const [userTurns, setUserTurns] = useState(0)
   const [customHints, setCustomHints] = useState<TopicChatSession['hints']>([])
   const [awaitingCustomInput, setAwaitingCustomInput] = useState(false)
+  const [voiceInputMode, setVoiceInputMode] = useState<VoiceInputMode>('zh-coach')
 
   const [debugMode, setDebugMode] = useState(() => isAiCoachDebugMode())
   const [aiSource, setAiSource] = useState<CoachAiSource>(() => getCoachAiSource())
@@ -105,9 +107,12 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     showToast('沒有聽清楚，可以再試一次')
   }, [])
 
+  const speechRecognitionLang =
+    voiceInputMode === 'zh-coach' ? 'zh-TW' : SPEECH_LANG[language]
+
   const { isSupported: isSpeechInputSupported, isListening, startListening, stopListening } =
     useSpeechRecognition({
-      lang: SPEECH_LANG[language],
+      lang: speechRecognitionLang,
       onResult: handleSpeechResult,
       onError: handleSpeechError,
     })
@@ -522,12 +527,33 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         {isListening ? (
           <div className="coach-voice-status" role="status" aria-live="polite">
             <span className="pulse-dot" aria-hidden="true" />
-            <span className="coach-voice-status-text">正在聽你說...</span>
+            <span className="coach-voice-status-text">
+              {voiceInputMode === 'zh-coach' ? '正在聽你說（中文）...' : `正在聽你說（${LANGUAGE_LABELS[language]}）...`}
+            </span>
             <button type="button" className="coach-voice-stop" onClick={stopListening}>
               停止
             </button>
           </div>
         ) : null}
+
+        <div className="coach-voice-mode-bar" role="group" aria-label="語音輸入模式">
+          <button
+            type="button"
+            className={`coach-voice-mode${voiceInputMode === 'zh-coach' ? ' coach-voice-mode--active' : ''}`}
+            onClick={() => setVoiceInputMode('zh-coach')}
+            disabled={inputDisabled || isListening}
+          >
+            中文問教練
+          </button>
+          <button
+            type="button"
+            className={`coach-voice-mode${voiceInputMode === 'practice-language' ? ' coach-voice-mode--active' : ''}`}
+            onClick={() => setVoiceInputMode('practice-language')}
+            disabled={inputDisabled || isListening}
+          >
+            練習{LANGUAGE_LABELS[language]}
+          </button>
+        </div>
 
         <div className="coach-input-row">
           <input

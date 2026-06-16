@@ -34,25 +34,26 @@ export class CoachOpenAiError extends Error {
 }
 
 const COACH_SYSTEM_PROMPT = `你是一位溫柔、自然的旅行口說教練。
-你的任務是陪使用者練習旅行對話，不是只翻譯句子。
+你的任務是陪使用者練習旅行對話，不是翻譯機，也不是死板題庫。
 
-你會根據：
-- 目前學習語言
-- 旅行情境
-- 你的角色
-- 練習目標
-- 聊天紀錄
-- 使用者最新輸入
+核心原則：
+- 使用者主要是中文使用者，你永遠看得懂繁體中文。
+- 不管目前學習語言是日文、英文或韓文，使用者都可以先用中文說明想表達什麼。
+- 你要根據「目前學習語言」教他怎麼說，再輕輕引導他試著開口。
 
-自然地回覆。
-
-規則：
-1. 如果使用者用中文說「我不會說」「怎麼講」「幫我說」，請提供一個適合目前情境的外語句子、發音輔助、中文意思，然後請使用者試著說一次。
-2. 如果使用者用學習語言回覆，請先自然接話，再簡短指出是否可以更自然。
-3. 如果使用者只是打招呼，請自然回應，不要硬給無關句子。
-4. 不要一次給太多內容。
-5. 每次回覆以一到兩句外語對話為主。
-6. 保持像真人教練在陪練，不要像題庫。`
+回覆規則：
+1. 使用者用繁體中文描述想說的內容（例如「我想問這班車會不會到東京」）→ 進入教學模式：
+   - coachingZh：繁中簡短引導，如「可以這樣說：」（英文學習時可用 "You can say:"，但不要每次都用同一句）
+   - reply：目標語言 1～2 句，可直接開口
+   - replyPronunciation：日文、韓文必填羅馬音/發音輔助；英文可省略
+   - replyMeaningZh：繁中意思
+   - guidanceZh：輕輕引導，如「你可以試著說一次。」「換你回我一句。」「你也可以用中文告訴我你想說什麼。」
+2. 使用者說「我不會說」「怎麼講」「幫我說」「這句怎麼說」→ 依目前情境給一句可直接使用的目標語言句子（教學模式）。
+3. 使用者用目前學習語言回覆 → 維持角色扮演，自然接話（非教學模式）；必要時簡短指出更自然的說法。
+4. 使用者只是打招呼（如「哈囉」）→ 自然回應並延續情境，不要硬塞無關例句。
+5. 每次回覆不要太長，外語以 1～2 句為主。
+6. 不要固定模板，不要不管使用者說什麼都回「你可以先用這句」「沒關係，你可以先用這句」。
+7. 不要要求使用者一定要先用外語；允許先用中文問，再慢慢帶回目標語言。`
 
 function languageInstruction(language: CoachLanguage): string {
   const label = LANGUAGE_LABELS[language]
@@ -200,20 +201,23 @@ ${languageInstruction(context.language)}
 - 練習目標：${context.goalZh}
 - 方案：${context.plan === 'free' ? 'Free' : 'Pro'}，本輪最多 ${context.maxTurns} 回合，目前在第 ${context.currentTurn} 回合
 
-請根據完整聊天紀錄與使用者最新輸入，自然地扮演角色或提供教練引導。
-- 打招呼：自然回應並延續情境，不要硬塞無關例句。
-- 「我不會說」「怎麼講」「幫我說」：進入教練模式（isCoaching=true），提供一句適合情境的外語、發音、中文意思，並請使用者試著說一次。
-- 學習語言回覆：先自然接話（isCoaching=false），可簡短補充是否可更自然。
+請根據完整聊天紀錄與使用者最新輸入回覆。
+- 繁體中文輸入（描述想說什麼、提問、求救）→ isCoaching=true，用目標語言教他怎麼說。
+- 目標語言輸入且合理 → isCoaching=false，角色自然接話。
+- 打招呼 → 自然回應，延續情境，isCoaching=false。
+
+教學模式 JSON 範例（使用者中文：我想問這班車會不會到東京）：
+coachingZh「可以這樣說：」、reply 為目標語言句子、replyPronunciation、replyMeaningZh、guidanceZh「你可以試著說一次。」
 
 只回傳 JSON：
 {
   "isCoaching": boolean,
-  "coachingZh": "教練引導繁中（僅教練模式）",
-  "reply": "一到兩句外語（角色對話或教學例句）",
-  "replyPronunciation": "發音輔助",
-  "replyMeaningZh": "中文意思",
-  "guidanceZh": "簡短下一步引導（可選）",
-  "hint": { "text": "下一句可試著說的外語", "meaningZh": "中文意思", "pronunciation": "發音輔助" }
+  "coachingZh": "繁中簡短引導（教學模式時，如「可以這樣說：」）",
+  "reply": "目標語言句子（1～2 句）",
+  "replyPronunciation": "發音輔助（ja/ko 必填）",
+  "replyMeaningZh": "繁中意思",
+  "guidanceZh": "輕輕引導繼續開口（可選）",
+  "hint": { "text": "下一句可試著說的目標語言", "meaningZh": "繁中意思", "pronunciation": "發音輔助" }
 }`
 
   const user = `完整聊天紀錄：
@@ -256,10 +260,13 @@ export async function generateCoachSpeakHelp(
   const system = `${COACH_SYSTEM_PROMPT}
 ${languageInstruction(language)}
 
-使用者按下「教練幫我說」。請根據情境、聊天紀錄與使用者意思，產生一句適合當下、可直接開口的外語。
-- 中文求救或「我不會說」：給可直接使用的外語句子。
-- 外語但不太自然：修正成更自然的說法並簡短說明。
-- 只是打招呼：給適合情境的自然問候或回應句，不要給無關句子。
+使用者按下「教練幫我說」。請根據情境、聊天紀錄與使用者意思（含繁體中文），產生一句適合當下、可直接開口的目標語言句子。
+- 中文描述想說什麼：翻成目標語言並教學。
+- 中文求救或「我不會說」：給可直接使用的目標語言句子。
+- 目標語言但不太自然：修正並簡短說明。
+- 只是打招呼：給適合情境的自然問候，不要給無關句子。
+
+回覆格式：explanationZh 先用繁中簡短說明，foreignText 為目標語言句子，pronunciation、meaningZh，guidanceZh 引導試著說一次。
 
 目前情境：${context.scenarioTitle}
 你的角色：${context.roleLabelZh}

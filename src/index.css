@@ -1420,6 +1420,36 @@ body {
   transform: scale(0.97);
 }
 
+.coach-voice-mode-bar {
+  display: flex;
+  gap: 6px;
+}
+
+.coach-voice-mode {
+  flex: 1;
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.coach-voice-mode--active {
+  color: var(--color-primary-dark);
+  background: #fff8f4;
+  border-color: #ecd0c6;
+  font-weight: 600;
+}
+
+.coach-voice-mode:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .coach-chat-mic {
   flex-shrink: 0;
   width: 42px;
