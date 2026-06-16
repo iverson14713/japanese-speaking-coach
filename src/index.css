@@ -1372,6 +1372,7 @@ body {
   overflow-y: auto;
   min-height: 0;
   -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(200px + env(safe-area-inset-bottom));
 }
 
 .coach-input-fixed {

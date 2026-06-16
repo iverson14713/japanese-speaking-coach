@@ -118,9 +118,15 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   const titleTapRef = useRef({ count: 0, lastTapAt: 0 })
   const inputRef = useRef<HTMLInputElement>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const chatShellRef = useRef<HTMLDivElement>(null)
   const prevLanguageRef = useRef(language)
   const prevModeRef = useRef<CoachPracticeMode>(initialCoach.practiceMode)
   const skipNextSaveRef = useRef(true)
+  const shouldAutoScrollRef = useRef(true)
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior) => {
+    chatEndRef.current?.scrollIntoView({ behavior, block: 'end' })
+  }, [])
 
   const handleSpeechResult = useCallback((transcript: string) => {
     if (!transcript.trim()) {
@@ -303,8 +309,11 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   }
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [messages, loading, phase])
+    if (!shouldAutoScrollRef.current) {
+      return
+    }
+    scrollToBottom('smooth')
+  }, [messages, loading, phase, scrollToBottom])
 
   useEffect(() => {
     if (isListening && inputDisabled) {
@@ -328,6 +337,15 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     setScenarioKey('')
     setCustomHints([])
     setAwaitingCustomInput(false)
+  }
+
+  function handleChatScroll() {
+    const container = chatShellRef.current
+    if (!container) {
+      return
+    }
+    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+    shouldAutoScrollRef.current = distanceToBottom < 120
   }
 
   function handlePracticeModeChange(mode: CoachPracticeMode) {
@@ -536,6 +554,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
 
     setLoading(true)
     setError(null)
+    shouldAutoScrollRef.current = true
 
     const previousMessages = messages
     const isFirstMessage = phase === 'welcome'
@@ -556,6 +575,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     }
 
     setMessages(history)
+    requestAnimationFrame(() => scrollToBottom('auto'))
 
     try {
       const apiHistory = takeRecentHistoryForApi(history)
@@ -585,6 +605,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         updateLearningSummary(next)
         return next
       })
+      requestAnimationFrame(() => scrollToBottom('smooth'))
     } catch {
       setError(formatAiConnectionError(debugMode))
       setMessages(previousMessages)
@@ -605,6 +626,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     }
 
     setInput('')
+    shouldAutoScrollRef.current = true
 
     if (practiceMode === 'free-chat') {
       await handleFreeChatSend(text)
@@ -627,6 +649,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
 
     setLoading(true)
     setError(null)
+    shouldAutoScrollRef.current = true
 
     const previousMessages = messages
     const previousUserTurns = userTurns
@@ -638,6 +661,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     ]
     setMessages(history)
     setUserTurns(nextUserTurn)
+    requestAnimationFrame(() => scrollToBottom('auto'))
 
     try {
       const apiHistory = takeRecentHistoryForApi(history)
@@ -675,6 +699,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         updateLearningSummary(next)
         return next
       })
+      requestAnimationFrame(() => scrollToBottom('smooth'))
 
       if (nextUserTurn >= maxTurns) {
         setPhase('ended')
@@ -852,7 +877,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         </p>
       ) : null}
 
-      <div className="coach-chat-shell">
+      <div className="coach-chat-shell" ref={chatShellRef} onScroll={handleChatScroll}>
         <CoachChatView
           language={language}
           practiceMode={practiceMode}
