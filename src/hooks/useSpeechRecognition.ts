@@ -24,6 +24,7 @@ export function useSpeechRecognition({
   onError,
 }: UseSpeechRecognitionOptions) {
   const [isSupported] = useState(() => getSpeechRecognitionConstructor() !== null)
+  const [isListening, setIsListening] = useState(false)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const transcriptRef = useRef('')
   const stoppedByUserRef = useRef(false)
@@ -48,6 +49,10 @@ export function useSpeechRecognition({
     recognition.interimResults = true
     recognition.maxAlternatives = 1
 
+    recognition.onstart = () => {
+      setIsListening(true)
+    }
+
     recognition.onresult = (event) => {
       transcriptRef.current = collectTranscript(event)
     }
@@ -58,6 +63,7 @@ export function useSpeechRecognition({
       }
 
       hadErrorRef.current = true
+      setIsListening(false)
 
       const message =
         event.error === 'not-allowed'
@@ -70,6 +76,8 @@ export function useSpeechRecognition({
     }
 
     recognition.onend = () => {
+      setIsListening(false)
+
       if (!stoppedByUserRef.current) {
         return
       }
@@ -122,6 +130,7 @@ export function useSpeechRecognition({
 
   return {
     isSupported,
+    isListening,
     startListening,
     stopListening,
   }

@@ -10,7 +10,12 @@ export type {
   TopicChatSession,
   TopicSuggestionResult,
 } from './types'
-export { COACH_LIMITS, REPLY_PLACEHOLDERS } from './types'
+export {
+  COACH_CHAT_INPUT_PLACEHOLDER,
+  COACH_LIMITS,
+  COACH_WELCOME_TEXT,
+  REPLY_PLACEHOLDERS,
+} from './types'
 export {
   continueConversation,
   continueTopicConversation,

@@ -1,6 +1,7 @@
 import type { Language } from '../../data/types'
-import { LANGUAGE_LABELS } from '../../data/types'
 import type {
+  ChatHint,
+  ChatMessage,
   ConversationReplyRequest,
   ConversationReplyResult,
   CustomScenarioRequest,
@@ -12,7 +13,7 @@ import type {
   TopicSuggestionRequest,
 } from './types'
 
-const API_BASE = import.meta.env.VITE_AI_API_BASE ?? ''
+const API_BASE = import.meta.env.VITE_AI_API_BASE ?? (import.meta.env.PROD ? '/coach' : '')
 const USE_MOCK = !API_BASE
 
 function delay(ms: number): Promise<void> {
@@ -244,6 +245,32 @@ const TOPIC_POOL: Record<Language, TopicChatSession[]> = {
   ],
 }
 
+const CUSTOM_HINTS: Record<Language, ChatHint[]> = {
+  ja: [
+    { text: 'すみません、これを探しています。', meaningZh: '不好意思，我在找這個。' },
+    { text: 'おすすめはありますか？', meaningZh: '有推薦的嗎？' },
+    { text: 'ありがとうございます。', meaningZh: '謝謝。' },
+  ],
+  en: [
+    { text: 'Excuse me, could you help me?', meaningZh: '不好意思，可以幫我嗎？' },
+    { text: 'Do you have any recommendations?', meaningZh: '有什麼推薦的嗎？' },
+    { text: 'Thank you very much.', meaningZh: '非常謝謝。' },
+  ],
+  ko: [
+    { text: '실례합니다, 도와주실 수 있나요?', meaningZh: '不好意思，可以幫我嗎？' },
+    { text: '추천해 주세요.', meaningZh: '請推薦一下。' },
+    { text: '감사합니다.', meaningZh: '謝謝。' },
+  ],
+}
+
+function inferRoleFromScenario(scenario: string): string {
+  if (/藥妝|药妆|drug|pharmacy/i.test(scenario)) return '藥妝店店員'
+  if (/飯店|酒店|hotel/i.test(scenario)) return '櫃台人員'
+  if (/餐廳|餐館|restaurant|居酒屋/i.test(scenario)) return '店員'
+  if (/車站|地鐵|電車|station/i.test(scenario)) return '站務人員'
+  return '當地人'
+}
+
 const CUSTOM_OPENINGS: Record<
   Language,
   { openingLine: string; openingMeaningZh: string; openingPronunciation?: string; roleZh: string }
@@ -309,9 +336,106 @@ function findTopicSession(language: Language, scenarioTitle: string): TopicChatS
   return TOPIC_POOL[language].find((t) => t.scenarioTitle === scenarioTitle)
 }
 
-function mockCorrectSentence(language: Language, sentence: string): SentenceCorrectionResult {
+function isDistressOrChineseHelp(text: string): boolean {
+  const trimmed = text.trim()
+  if (!trimmed) {
+    return false
+  }
+  if (/不會說|不会说|不知道|怎麼說|怎么说|教.*我|救命|不會講|不会讲|幫我說|帮我说/i.test(trimmed)) {
+    return true
+  }
+  const hasCjk = /[\u4e00-\u9fff]/.test(trimmed)
+  const hasTargetScript =
+    /[ぁ-んァ-ンー]/.test(trimmed) || /[a-zA-Z]/.test(trimmed) || /[가-힣]/.test(trimmed)
+  return hasCjk && !hasTargetScript
+}
+
+const COACHING_PHRASES: Record<
+  Language,
+  { foreign: string; pronunciation?: string; meaningZh: string; guidanceZh: string }[]
+> = {
+  ja: [
+    {
+      foreign: '生ビールをお願いします。',
+      pronunciation: 'nama biiru o onegaishimasu',
+      meaningZh: '請給我生啤酒。',
+      guidanceZh: '你試著打一次看看。',
+    },
+    {
+      foreign: 'すみません、これを探しています。',
+      pronunciation: 'sumimasen, kore o sagashite imasu',
+      meaningZh: '不好意思，我在找這個。',
+      guidanceZh: '可以照著輸入，或用自己的話改寫。',
+    },
+    {
+      foreign: 'おすすめはありますか？',
+      pronunciation: 'osusume wa arimasu ka',
+      meaningZh: '有什麼推薦的嗎？',
+      guidanceZh: '試著用這句回覆店員看看。',
+    },
+  ],
+  en: [
+    {
+      foreign: 'Could I have a latte, please?',
+      meaningZh: '可以給我一杯拿鐵嗎？',
+      guidanceZh: '你試著打一次看看。',
+    },
+    {
+      foreign: 'Excuse me, could you help me?',
+      meaningZh: '不好意思，可以幫我嗎？',
+      guidanceZh: '先從這句開始開口。',
+    },
+    {
+      foreign: 'Do you have any recommendations?',
+      meaningZh: '有什麼推薦的嗎？',
+      guidanceZh: '試著用這句回覆看看。',
+    },
+  ],
+  ko: [
+    {
+      foreign: '아메리카노 한 잔 주세요.',
+      pronunciation: 'amerikano han jan juseyo',
+      meaningZh: '請給我一杯美式咖啡。',
+      guidanceZh: '你試著打一次看看。',
+    },
+    {
+      foreign: '실례합니다, 도와주실 수 있나요?',
+      pronunciation: 'sillyehamnida, dowajusil su innayo?',
+      meaningZh: '不好意思，可以幫我嗎？',
+      guidanceZh: '先從這句開始開口。',
+    },
+    {
+      foreign: '추천해 주세요.',
+      pronunciation: 'chucheonhae juseyo',
+      meaningZh: '請推薦一下。',
+      guidanceZh: '試著用這句回覆看看。',
+    },
+  ],
+}
+
+function pickCoachingPhrase(language: Language, turnIndex: number) {
+  const phrases = COACHING_PHRASES[language]
+  return phrases[turnIndex % phrases.length]
+}
+
+function mockCoachSpeakHelp(
+  language: Language,
+  sentence: string,
+  turnIndex: number,
+): SentenceCorrectionResult {
   const trimmed = sentence.trim()
-  const langLabel = LANGUAGE_LABELS[language]
+  const phrase = pickCoachingPhrase(language, turnIndex)
+
+  if (isDistressOrChineseHelp(trimmed)) {
+    return {
+      original: trimmed,
+      corrected: phrase.foreign,
+      pronunciation: phrase.pronunciation,
+      meaningZh: phrase.meaningZh,
+      explanationZh: '根據目前情境，這句可以直接開口使用。',
+      naturalnessTipZh: phrase.guidanceZh,
+    }
+  }
 
   if (language === 'en') {
     const lower = trimmed.toLowerCase()
@@ -319,34 +443,61 @@ function mockCorrectSentence(language: Language, sentence: string): SentenceCorr
       return {
         original: trimmed,
         corrected: "I'd like to check in, please.",
-        explanationZh: '「check in」前面需要加 to，且旅館用 check in 比較自然。',
-        naturalnessTipZh: '在櫃台說 I\'d like to... 比 I want... 更禮貌自然。',
-      }
-    }
-    if (!trimmed.endsWith('.') && !trimmed.endsWith('?') && !trimmed.endsWith('!')) {
-      return {
-        original: trimmed,
-        corrected: `${trimmed}.`,
-        explanationZh: '陳述句結尾建議加句點，語氣更完整。',
-        naturalnessTipZh: '開口前先確認主詞＋動詞是否完整。',
+        meaningZh: '我想辦理入住，謝謝。',
+        explanationZh: '在飯店櫃台用 I\'d like to... 比 I want... 更自然禮貌。',
+        naturalnessTipZh: '你試著打一次看看。',
       }
     }
   }
 
-  if (language === 'ja' && !trimmed.endsWith('。') && !trimmed.endsWith('？')) {
+  if (language === 'ja' && /です$|ます$/.test(trimmed)) {
     return {
       original: trimmed,
-      corrected: `${trimmed}。`,
-      explanationZh: '日文句子結尾建議加上「。」',
-      naturalnessTipZh: '旅行對話中，結尾加上です／ます 會更禮貌。',
+      corrected: trimmed,
+      pronunciation: phrase.pronunciation,
+      meaningZh: phrase.meaningZh,
+      explanationZh: '這句日文大致可以溝通，語氣也夠禮貌。',
+      naturalnessTipZh: '如果想換個說法，也可以試試看其他建議句。',
     }
   }
 
   return {
     original: trimmed,
-    corrected: trimmed,
-    explanationZh: `這句${langLabel}大致可以溝通，以下是讓它更自然的建議。`,
-    naturalnessTipZh: '試著用更短、更直接的句子，對方比較容易聽懂。',
+    corrected: phrase.foreign,
+    pronunciation: phrase.pronunciation,
+    meaningZh: phrase.meaningZh,
+    explanationZh: '根據你的意思，這句比較適合在這個情境開口。',
+    naturalnessTipZh: phrase.guidanceZh,
+  }
+}
+
+function mockConversationReply(
+  language: Language,
+  userMessage: string,
+  userTurnIndex: number,
+  topic?: TopicChatSession,
+): ConversationReplyResult {
+  if (isDistressOrChineseHelp(userMessage)) {
+    const phrase = pickCoachingPhrase(language, userTurnIndex)
+    const hints = topic?.hints ?? CUSTOM_HINTS[language]
+    return {
+      coachingZh: '沒關係，你可以先用這句：',
+      reply: phrase.foreign,
+      replyPronunciation: phrase.pronunciation,
+      replyMeaningZh: phrase.meaningZh,
+      guidanceZh: phrase.guidanceZh,
+      hint: hints[userTurnIndex % hints.length],
+    }
+  }
+
+  const replies = topic?.followUpReplies ?? GENERIC_FOLLOW_UPS[language]
+  const index = Math.min(userTurnIndex - 1, replies.length - 1)
+  const reply = replies[Math.max(0, index)]
+  const hints = topic?.hints ?? CUSTOM_HINTS[language]
+
+  return {
+    ...reply,
+    hint: hints[userTurnIndex % hints.length],
   }
 }
 
@@ -362,30 +513,41 @@ async function fetchFromApi<T>(path: string, body: unknown): Promise<T> {
   return response.json() as Promise<T>
 }
 
+function slimHistory(history: ChatMessage[]): { role: 'user' | 'assistant'; text: string }[] {
+  return history
+    .filter((message) => message.variant !== 'welcome')
+    .map((message) => ({ role: message.role, text: message.text }))
+}
+
 export async function startCustomScenario(
   request: CustomScenarioRequest,
 ): Promise<CustomScenarioResult> {
   if (!USE_MOCK) {
-    return fetchFromApi<CustomScenarioResult>('/coach/custom-scenario', request)
+    return fetchFromApi<CustomScenarioResult>('/custom-scenario', request)
   }
 
   await delay(600)
 
   const opening = CUSTOM_OPENINGS[request.language]
-  const title = request.scenario.trim().slice(0, 24) || '自訂旅行情境'
+  const scenario = request.scenario.trim()
+  const title = scenario.slice(0, 24) || '自訂旅行情境'
+  const roleLabelZh = inferRoleFromScenario(scenario)
 
   return {
     scenarioTitle: title,
-    roleDescriptionZh: `AI 將扮演${opening.roleZh}，陪你練習「${request.scenario.trim()}」`,
+    roleLabelZh,
+    goalZh: scenario,
+    introZh: `好，我會扮演${roleLabelZh}，陪你練習這個情境。`,
     openingLine: opening.openingLine,
     openingMeaningZh: opening.openingMeaningZh,
     openingPronunciation: opening.openingPronunciation,
+    hints: CUSTOM_HINTS[request.language],
   }
 }
 
 export async function startTopicChat(request: TopicSuggestionRequest): Promise<TopicChatSession> {
   if (!USE_MOCK) {
-    return fetchFromApi<TopicChatSession>('/coach/start-topic-chat', request)
+    return fetchFromApi<TopicChatSession>('/start-topic-chat', request)
   }
 
   await delay(500)
@@ -401,48 +563,43 @@ export async function correctSentence(
   request: SentenceCorrectionRequest,
 ): Promise<SentenceCorrectionResult> {
   if (!USE_MOCK) {
-    return fetchFromApi<SentenceCorrectionResult>('/coach/correct-sentence', request)
+    return fetchFromApi<SentenceCorrectionResult>('/correct-sentence', {
+      ...request,
+      history: slimHistory(request.history),
+    })
   }
 
   await delay(450)
-  return mockCorrectSentence(request.language, request.sentence)
+  const turnIndex = request.history.filter((message) => message.role === 'user').length
+  return mockCoachSpeakHelp(request.language, request.sentence, turnIndex)
 }
 
 export async function continueTopicConversation(
   request: TopicConversationRequest,
 ): Promise<ConversationReplyResult> {
   if (!USE_MOCK) {
-    return fetchFromApi<ConversationReplyResult>('/coach/topic-reply', request)
+    return fetchFromApi<ConversationReplyResult>('/topic-reply', request)
   }
 
   await delay(500)
   const topic = findTopicSession(request.language, request.scenarioTitle)
-  const replies = topic?.followUpReplies ?? GENERIC_FOLLOW_UPS[request.language]
-  const index = Math.min(request.userTurnIndex - 1, replies.length - 1)
-  return replies[Math.max(0, index)]
+  return mockConversationReply(request.language, '', request.userTurnIndex, topic)
 }
 
 export async function continueConversation(
   request: ConversationReplyRequest,
 ): Promise<ConversationReplyResult> {
   if (!USE_MOCK) {
-    return fetchFromApi<ConversationReplyResult>('/coach/conversation-reply', request)
+    return fetchFromApi<ConversationReplyResult>('/conversation-reply', {
+      ...request,
+      history: slimHistory(request.history),
+    })
   }
 
   await delay(500)
   const topic = findTopicSession(request.language, request.scenario)
-  if (topic) {
-    const userTurnIndex = request.history.filter((m) => m.role === 'user').length
-    return continueTopicConversation({
-      language: request.language,
-      scenarioTitle: request.scenario,
-      userTurnIndex,
-    })
-  }
-
-  const turnIndex = request.history.filter((m) => m.role === 'user').length
-  const replies = GENERIC_FOLLOW_UPS[request.language]
-  return replies[Math.min(turnIndex - 1, replies.length - 1)] ?? replies[0]
+  const userTurnIndex = request.history.filter((message) => message.role === 'user').length
+  return mockConversationReply(request.language, request.userMessage, userTurnIndex, topic)
 }
 
 export function getTopicHint(

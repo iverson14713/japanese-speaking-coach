@@ -1336,6 +1336,214 @@ body {
 
 /* ── Coach Page ── */
 
+/* ── Coach Page ── */
+
+.coach-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding-bottom: 64px;
+}
+
+.coach-header--compact {
+  text-align: center;
+  padding: 12px 0 4px;
+}
+
+.coach-usage-bar--compact {
+  margin: 4px 0 8px;
+  padding: 8px 12px;
+}
+
+.coach-chat-shell {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.coach-input-fixed {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  width: 100%;
+  max-width: var(--max-width);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 8px 20px 10px;
+  background: linear-gradient(180deg, rgba(250, 247, 242, 0) 0%, #faf7f2 28%);
+  z-index: 40;
+  box-sizing: border-box;
+}
+
+.coach-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.coach-voice-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--color-primary-dark);
+  background: #fff8f4;
+  border: 1px solid #ecd0c6;
+  border-radius: 999px;
+}
+
+.coach-voice-status-text {
+  flex: 1;
+}
+
+.coach-voice-stop {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  background: linear-gradient(180deg, #fceee8 0%, #f6ddd4 100%);
+  border: 1px solid #ecd0c6;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.coach-voice-stop:active {
+  transform: scale(0.97);
+}
+
+.coach-chat-mic {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  background: var(--color-bg-card);
+  border: 1.5px solid var(--color-border);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
+}
+
+.coach-chat-mic:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.coach-chat-mic:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.coach-chat-mic--active {
+  background: linear-gradient(180deg, #fceee8 0%, #f6ddd4 100%);
+  border-color: #ecd0c6;
+  box-shadow: 0 0 0 3px rgba(232, 145, 122, 0.15);
+}
+
+.coach-chat-mic-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.coach-quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.coach-quick-action {
+  width: 100%;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  background: linear-gradient(180deg, #fceee8 0%, #f6ddd4 100%);
+  border: 1px solid #ecd0c6;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  box-shadow: 0 1px 6px rgba(232, 145, 122, 0.1);
+}
+
+.coach-quick-action:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.coach-quick-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.coach-quick-action--outline {
+  background: var(--color-bg-card);
+  border-color: var(--color-border);
+  color: var(--color-text);
+  font-weight: 500;
+  box-shadow: none;
+}
+
+.coach-chat-text--welcome {
+  white-space: pre-line;
+  line-height: 1.65;
+}
+
+.coach-chat-bubble--welcome {
+  background: #fffdf9;
+}
+
+.coach-chat-session--compact {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+}
+
+.coach-chat-coaching {
+  font-size: 0.84rem;
+  color: var(--color-text);
+  line-height: 1.55;
+  margin-bottom: 6px;
+}
+
+.coach-chat-guidance {
+  font-size: 0.76rem;
+  color: var(--color-primary-dark);
+  line-height: 1.5;
+  margin-top: 8px;
+}
+
+.app-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(96px + env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateY(12px);
+  max-width: min(90vw, 320px);
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  color: #fff;
+  background: rgba(74, 55, 40, 0.92);
+  border-radius: var(--radius-md);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 60;
+  text-align: center;
+}
+
+.app-toast--visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 .coach-header {
   text-align: center;
   padding: 20px 0 8px;

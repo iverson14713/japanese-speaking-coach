@@ -17,6 +17,11 @@ export interface ChatMessage {
   text: string
   meaningZh?: string
   pronunciation?: string
+  coachingZh?: string
+  guidanceZh?: string
+  hint?: ChatHint
+  /** welcome = 開場白；scenario-meta = 情境說明；dialogue = 對話內容 */
+  variant?: 'welcome' | 'scenario-meta' | 'dialogue'
 }
 
 export interface ChatSessionInfo {
@@ -43,14 +48,13 @@ export interface TopicChatSession extends ChatSessionInfo {
   }[]
 }
 
-export interface CustomScenarioResult {
-  scenarioTitle: string
-  roleDescriptionZh: string
+export interface CustomScenarioResult extends ChatSessionInfo {
+  introZh: string
   openingLine: string
   openingMeaningZh: string
   openingPronunciation?: string
+  hints: ChatHint[]
 }
-
 /** @deprecated Use TopicChatSession for chat mode */
 export interface TopicSuggestionResult extends TopicChatSession {
   scenarioDescriptionZh: string
@@ -61,14 +65,19 @@ export interface TopicSuggestionResult extends TopicChatSession {
 export interface SentenceCorrectionResult {
   original: string
   corrected: string
+  pronunciation?: string
+  meaningZh?: string
   explanationZh: string
-  naturalnessTipZh: string
+  naturalnessTipZh?: string
 }
 
 export interface ConversationReplyResult {
   reply: string
   replyMeaningZh: string
   replyPronunciation?: string
+  coachingZh?: string
+  guidanceZh?: string
+  hint?: ChatHint
 }
 
 export interface CustomScenarioRequest {
@@ -79,11 +88,20 @@ export interface CustomScenarioRequest {
 export interface SentenceCorrectionRequest {
   language: Language
   sentence: string
+  scenarioTitle: string
+  roleLabelZh: string
+  goalZh: string
+  history: ChatMessage[]
 }
 
 export interface ConversationReplyRequest {
   language: Language
   scenario: string
+  roleLabelZh: string
+  goalZh: string
+  maxTurns: number
+  currentTurn: number
+  plan: CoachPlan
   history: ChatMessage[]
   userMessage: string
 }
@@ -97,6 +115,11 @@ export interface TopicConversationRequest {
   scenarioTitle: string
   userTurnIndex: number
 }
+
+export const COACH_CHAT_INPUT_PLACEHOLDER = '輸入你想練的情境，或直接回覆教練...'
+
+export const COACH_WELCOME_TEXT =
+  '今天想練什麼呢？\n你可以自己開一個旅行情境，\n也可以讓我幫你開一個話題。'
 
 export const REPLY_PLACEHOLDERS: Record<Language, string> = {
   ja: '日文で返してみよう...',
