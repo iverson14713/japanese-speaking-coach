@@ -125,8 +125,31 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   const shouldAutoScrollRef = useRef(true)
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior) => {
-    chatEndRef.current?.scrollIntoView({ behavior, block: 'end' })
+    const el = chatShellRef.current
+    if (!el) {
+      return
+    }
+    el.scrollTo({ top: el.scrollHeight, behavior })
   }, [])
+
+  const queueScrollToBottom = useCallback(
+    (behavior: ScrollBehavior) => {
+      // Wait for DOM/layout (buttons/TTS/viewport) to settle.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (shouldAutoScrollRef.current) {
+            scrollToBottom(behavior)
+          }
+          window.setTimeout(() => {
+            if (shouldAutoScrollRef.current) {
+              scrollToBottom(behavior)
+            }
+          }, 160)
+        })
+      })
+    },
+    [scrollToBottom],
+  )
 
   const handleSpeechResult = useCallback((transcript: string) => {
     if (!transcript.trim()) {
@@ -312,8 +335,29 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     if (!shouldAutoScrollRef.current) {
       return
     }
-    scrollToBottom('smooth')
-  }, [messages, loading, phase, scrollToBottom])
+    queueScrollToBottom('smooth')
+  }, [messages, loading, phase, queueScrollToBottom])
+
+  useEffect(() => {
+    const viewport = window.visualViewport
+    if (!viewport) {
+      return
+    }
+
+    const handleViewportChange = () => {
+      if (!shouldAutoScrollRef.current) {
+        return
+      }
+      queueScrollToBottom('auto')
+    }
+
+    viewport.addEventListener('resize', handleViewportChange)
+    viewport.addEventListener('scroll', handleViewportChange)
+    return () => {
+      viewport.removeEventListener('resize', handleViewportChange)
+      viewport.removeEventListener('scroll', handleViewportChange)
+    }
+  }, [queueScrollToBottom])
 
   useEffect(() => {
     if (isListening && inputDisabled) {
@@ -575,7 +619,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     }
 
     setMessages(history)
-    requestAnimationFrame(() => scrollToBottom('auto'))
+    queueScrollToBottom('auto')
 
     try {
       const apiHistory = takeRecentHistoryForApi(history)
@@ -605,7 +649,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         updateLearningSummary(next)
         return next
       })
-      requestAnimationFrame(() => scrollToBottom('smooth'))
+      queueScrollToBottom('smooth')
     } catch {
       setError(formatAiConnectionError(debugMode))
       setMessages(previousMessages)
@@ -661,7 +705,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     ]
     setMessages(history)
     setUserTurns(nextUserTurn)
-    requestAnimationFrame(() => scrollToBottom('auto'))
+    queueScrollToBottom('auto')
 
     try {
       const apiHistory = takeRecentHistoryForApi(history)
@@ -699,7 +743,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         updateLearningSummary(next)
         return next
       })
-      requestAnimationFrame(() => scrollToBottom('smooth'))
+      queueScrollToBottom('smooth')
 
       if (nextUserTurn >= maxTurns) {
         setPhase('ended')
@@ -892,6 +936,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
           onFocusCustomInput={handleFocusCustomInput}
           onRequestNaturalCorrection={handleRequestNaturalCorrection}
         />
+        <div className="coach-chat-spacer" aria-hidden="true" />
         <div ref={chatEndRef} />
       </div>
 
