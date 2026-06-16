@@ -15,6 +15,7 @@ import {
   continueConversation,
   correctSentence,
   getCoachAiSource,
+  getCoachLastApiError,
   isCoachMockMode,
   startCustomScenario,
   startTopicChat,
@@ -52,6 +53,14 @@ function createWelcomeMessages(): ChatMessage[] {
 
 function buildScenarioMetaText(session: ChatSessionInfo): string {
   return `情境：${session.scenarioTitle}\n角色：${session.roleLabelZh}\n目標：${session.goalZh}`
+}
+
+function formatAiConnectionError(debugMode: boolean): string {
+  if (!debugMode) {
+    return 'AI 連線失敗，請稍後再試'
+  }
+  const detail = getCoachLastApiError()
+  return detail ? `AI 連線失敗：${detail}` : 'AI 連線失敗，請稍後再試'
 }
 
 export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
@@ -248,7 +257,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         },
       ])
     } catch {
-      setError('AI 連線失敗，請稍後再試')
+      setError(formatAiConnectionError(debugMode))
       setMessages(createWelcomeMessages())
       setPhase('welcome')
     } finally {
@@ -300,7 +309,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         },
       ])
     } catch {
-      setError('AI 連線失敗，請稍後再試')
+      setError(formatAiConnectionError(debugMode))
       setMessages(createWelcomeMessages())
       setPhase('welcome')
     } finally {
@@ -368,7 +377,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         setPhase('ended')
       }
     } catch {
-      setError('AI 連線失敗，請稍後再試')
+      setError(formatAiConnectionError(debugMode))
       setMessages(previousMessages)
       setUserTurns(previousUserTurns)
       setInput(text)
@@ -398,7 +407,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         history: messages,
       })
     } catch {
-      setError('AI 連線失敗，請稍後再試')
+      setError(formatAiConnectionError(debugMode))
       return null
     }
   }

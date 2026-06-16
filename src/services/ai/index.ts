@@ -23,6 +23,7 @@ export {
   continueTopicConversation,
   correctSentence,
   getCoachAiSource,
+  getCoachLastApiError,
   getTopicHint,
   isCoachMockMode,
   startCustomScenario,

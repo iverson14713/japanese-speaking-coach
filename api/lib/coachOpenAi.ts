@@ -1,3 +1,5 @@
+import OpenAI from 'openai'
+
 type CoachLanguage = 'ja' | 'en' | 'ko'
 
 const LANGUAGE_LABELS: Record<CoachLanguage, string> = {
@@ -19,6 +21,16 @@ export interface CoachSessionContext {
   maxTurns: number
   currentTurn: number
   plan: 'free' | 'pro'
+}
+
+export class CoachOpenAiError extends Error {
+  code: string
+
+  constructor(code: string, message: string) {
+    super(message)
+    this.name = 'CoachOpenAiError'
+    this.code = code
+  }
 }
 
 const COACH_SYSTEM_PROMPT = `你是一位溫柔、自然的旅行口說教練。
@@ -53,43 +65,46 @@ function languageInstruction(language: CoachLanguage): string {
   return `目前學習語言：${label}。外語對話請用英文。`
 }
 
-async function callOpenAiJson<T>(system: string, user: string): Promise<T> {
+function getOpenAiClient(): OpenAI {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
-    throw new Error('OPENAI_API_KEY is not configured')
+    console.error('[ai-coach] Missing OPENAI_API_KEY')
+    throw new CoachOpenAiError('MISSING_API_KEY', 'OPENAI_API_KEY is not configured')
   }
+  return new OpenAI({ apiKey })
+}
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
+async function callOpenAiJson<T>(system: string, user: string): Promise<T> {
+  const client = getOpenAiClient()
+  const model = process.env.OPENAI_MODEL ?? 'gpt-4o-mini'
+
+  try {
+    const completion = await client.chat.completions.create({
+      model,
       temperature: 0.75,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: user },
       ],
-    }),
-  })
+    })
 
-  if (!response.ok) {
-    const detail = await response.text()
-    throw new Error(`OpenAI error ${response.status}: ${detail}`)
-  }
+    const content = completion.choices[0]?.message?.content
+    if (!content) {
+      console.error('[ai-coach] OpenAI returned empty content')
+      throw new CoachOpenAiError('OPENAI_EMPTY_RESPONSE', 'OpenAI returned an empty response')
+    }
 
-  const payload = (await response.json()) as {
-    choices?: { message?: { content?: string } }[]
-  }
-  const content = payload.choices?.[0]?.message?.content
-  if (!content) {
-    throw new Error('Empty OpenAI response')
-  }
+    return JSON.parse(content) as T
+  } catch (error) {
+    if (error instanceof CoachOpenAiError) {
+      throw error
+    }
 
-  return JSON.parse(content) as T
+    const message = error instanceof Error ? error.message : 'Unknown OpenAI error'
+    console.error('[ai-coach] OpenAI API error:', message)
+    throw new CoachOpenAiError('OPENAI_API_ERROR', message)
+  }
 }
 
 function formatHistory(history: ChatTurn[]): string {
@@ -132,8 +147,7 @@ ${languageInstruction(language)}
   ]
 }`
 
-  const user = `使用者想練的情境：${scenario}`
-  return callOpenAiJson(system, user)
+  return callOpenAiJson(system, `使用者想練的情境：${scenario}`)
 }
 
 export async function generateTopicChat(language: CoachLanguage): Promise<{

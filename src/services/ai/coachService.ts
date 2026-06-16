@@ -14,20 +14,30 @@ import type {
   TopicSuggestionRequest,
 } from './types'
 
-const API_BASE = import.meta.env.VITE_AI_API_BASE ?? '/coach'
+const API_BASE = import.meta.env.VITE_AI_API_BASE ?? '/api/ai-coach'
 const FORCE_MOCK = import.meta.env.VITE_AI_COACH_USE_MOCK === 'true'
 const FALLBACK_ON_ERROR = import.meta.env.VITE_AI_COACH_FALLBACK_ON_ERROR === 'true'
 
 let lastCoachAiSource: CoachAiSource = FORCE_MOCK ? 'mock' : 'openai'
+let lastCoachApiError: string | null = null
 
 export function getCoachAiSource(): CoachAiSource {
   return lastCoachAiSource
 }
 
+export function getCoachLastApiError(): string | null {
+  return lastCoachApiError
+}
+
 export class CoachApiError extends Error {
-  constructor(message = 'Coach API request failed') {
-    super(message)
+  code?: string
+  status?: number
+
+  constructor(message: string, options?: { code?: string; status?: number; detail?: string }) {
+    super(options?.detail ?? message)
     this.name = 'CoachApiError'
+    this.code = options?.code
+    this.status = options?.status
   }
 }
 
@@ -512,16 +522,36 @@ function mockConversationReply(
   }
 }
 
-async function fetchFromApi<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
+type CoachApiAction =
+  | 'custom-scenario'
+  | 'start-topic-chat'
+  | 'conversation-reply'
+  | 'correct-sentence'
+
+async function fetchFromApi<T>(action: CoachApiAction, body: Record<string, unknown>): Promise<T> {
+  const response = await fetch(API_BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ action, ...body }),
   })
-  if (!response.ok) {
-    throw new CoachApiError(`AI API error: ${response.status}`)
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    error?: string
+    code?: string
   }
-  return response.json() as Promise<T>
+
+  if (!response.ok) {
+    const detail = payload.error ?? `HTTP ${response.status}`
+    lastCoachApiError = payload.code ? `${payload.code}: ${detail}` : detail
+    throw new CoachApiError(`AI API error: ${response.status}`, {
+      code: payload.code,
+      status: response.status,
+      detail,
+    })
+  }
+
+  lastCoachApiError = null
+  return payload as T
 }
 
 function historyForApi(history: ChatMessage[]): { role: 'user' | 'assistant'; text: string }[] {
@@ -546,14 +576,18 @@ function historyForApi(history: ChatMessage[]): { role: 'user' | 'assistant'; te
     })
 }
 
-async function withCoachApi<T>(path: string, body: unknown, mockHandler: () => Promise<T>): Promise<T> {
+async function withCoachApi<T>(
+  action: CoachApiAction,
+  body: Record<string, unknown>,
+  mockHandler: () => Promise<T>,
+): Promise<T> {
   if (FORCE_MOCK) {
     lastCoachAiSource = 'mock'
     return mockHandler()
   }
 
   try {
-    const result = await fetchFromApi<T>(path, body)
+    const result = await fetchFromApi<T>(action, body)
     lastCoachAiSource = 'openai'
     return result
   } catch (error) {
@@ -561,14 +595,14 @@ async function withCoachApi<T>(path: string, body: unknown, mockHandler: () => P
       lastCoachAiSource = 'fallback'
       return mockHandler()
     }
-    throw error instanceof CoachApiError ? error : new CoachApiError()
+    throw error instanceof CoachApiError ? error : new CoachApiError('Coach API request failed')
   }
 }
 
 export async function startCustomScenario(
   request: CustomScenarioRequest,
 ): Promise<CustomScenarioResult> {
-  return withCoachApi('/custom-scenario', request, async () => {
+  return withCoachApi('custom-scenario', { language: request.language, scenario: request.scenario }, async () => {
     await delay(600)
 
     const opening = CUSTOM_OPENINGS[request.language]
@@ -590,7 +624,7 @@ export async function startCustomScenario(
 }
 
 export async function startTopicChat(request: TopicSuggestionRequest): Promise<TopicChatSession> {
-  return withCoachApi('/start-topic-chat', request, async () => {
+  return withCoachApi('start-topic-chat', { language: request.language }, async () => {
     await delay(500)
     return pickRandom(TOPIC_POOL[request.language])
   })
@@ -605,9 +639,13 @@ export async function correctSentence(
   request: SentenceCorrectionRequest,
 ): Promise<SentenceCorrectionResult> {
   return withCoachApi(
-    '/correct-sentence',
+    'correct-sentence',
     {
-      ...request,
+      language: request.language,
+      sentence: request.sentence,
+      scenarioTitle: request.scenarioTitle,
+      roleLabelZh: request.roleLabelZh,
+      goalZh: request.goalZh,
       history: historyForApi(request.history),
     },
     async () => {
@@ -621,7 +659,7 @@ export async function correctSentence(
 export async function continueTopicConversation(
   request: TopicConversationRequest,
 ): Promise<ConversationReplyResult> {
-  return withCoachApi('/conversation-reply', request, async () => {
+  return withCoachApi('conversation-reply', request as unknown as Record<string, unknown>, async () => {
     await delay(500)
     const topic = findTopicSession(request.language, request.scenarioTitle)
     return mockConversationReply(request.language, '', request.userTurnIndex, topic)
@@ -632,10 +670,17 @@ export async function continueConversation(
   request: ConversationReplyRequest,
 ): Promise<ConversationReplyResult> {
   return withCoachApi(
-    '/conversation-reply',
+    'conversation-reply',
     {
-      ...request,
+      language: request.language,
+      scenario: request.scenario,
+      roleLabelZh: request.roleLabelZh,
+      goalZh: request.goalZh,
+      maxTurns: request.maxTurns,
+      currentTurn: request.currentTurn,
+      plan: request.plan,
       history: historyForApi(request.history),
+      userMessage: request.userMessage,
     },
     async () => {
       await delay(500)
