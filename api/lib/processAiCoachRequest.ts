@@ -1,8 +1,8 @@
 import {
   CoachOpenAiError,
-  generateCoachSpeakHelp,
   generateConversationReply,
   generateCustomScenario,
+  generateSuggestUserReply,
   generateTopicChat,
   type CoachSessionContext,
 } from './coachOpenAi.js'
@@ -13,6 +13,7 @@ export type AiCoachAction =
   | 'custom-scenario'
   | 'start-topic-chat'
   | 'conversation-reply'
+  | 'suggest-user-reply'
   | 'correct-sentence'
 
 export interface AiCoachErrorBody {
@@ -137,38 +138,51 @@ export async function processAiCoachRequest(body: unknown): Promise<AiCoachResul
         return { status: 200, data }
       }
 
+      case 'suggest-user-reply':
       case 'correct-sentence': {
-        const { language, sentence, scenarioTitle, roleLabelZh, goalZh, history } = payload
+        const language = payload.currentLanguage ?? payload.language
+        const userInput = payload.userInput ?? payload.sentence
+        const currentScenario = payload.currentScenario ?? payload.scenarioTitle
+        const aiRole = payload.aiRole ?? payload.roleLabelZh
+        const userRole = payload.userRole ?? '旅行者'
+        const goal = payload.goal ?? payload.goalZh
+        const history = payload.conversationHistory ?? payload.history
 
         if (!isCoachLanguage(language)) {
           return invalidBody('Invalid language')
         }
         if (
-          typeof sentence !== 'string' ||
-          typeof scenarioTitle !== 'string' ||
-          typeof roleLabelZh !== 'string' ||
-          typeof goalZh !== 'string' ||
+          typeof userInput !== 'string' ||
+          typeof currentScenario !== 'string' ||
+          typeof aiRole !== 'string' ||
+          typeof userRole !== 'string' ||
+          typeof goal !== 'string' ||
           !Array.isArray(history)
         ) {
-          return invalidBody('Missing correction context')
+          return invalidBody('Missing suggest-user-reply context')
         }
 
-        const result = await generateCoachSpeakHelp(
+        const result = await generateSuggestUserReply(
           language,
-          sentence,
-          { scenarioTitle, roleLabelZh, goalZh },
+          userInput,
+          {
+            scenarioTitle: currentScenario,
+            aiRoleLabelZh: aiRole,
+            userRoleLabelZh: userRole,
+            goalZh: goal,
+          },
           history as { role: 'user' | 'assistant'; text: string }[],
         )
 
         return {
           status: 200,
           data: {
-            original: sentence,
-            corrected: result.foreignText,
-            pronunciation: result.pronunciation,
+            original: userInput,
+            suggestedSentence: result.suggestedSentence,
+            corrected: result.suggestedSentence,
+            pronunciation: language === 'en' ? undefined : result.pronunciation || undefined,
             meaningZh: result.meaningZh,
             explanationZh: result.explanationZh,
-            naturalnessTipZh: result.guidanceZh,
           },
         }
       }

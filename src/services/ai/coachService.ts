@@ -9,6 +9,7 @@ import type {
   CustomScenarioResult,
   SentenceCorrectionRequest,
   SentenceCorrectionResult,
+  SuggestUserReplyRequest,
   TopicChatSession,
   TopicConversationRequest,
   TopicSuggestionRequest,
@@ -491,57 +492,170 @@ function pickCoachingPhrase(language: Language, turnIndex: number) {
   return phrases[turnIndex % phrases.length]
 }
 
-function mockCoachSpeakHelp(
-  language: Language,
-  sentence: string,
-  turnIndex: number,
-): SentenceCorrectionResult {
-  const trimmed = sentence.trim()
-  const phrase = pickCoachingPhrase(language, turnIndex)
+function mockSuggestUserReply(request: SuggestUserReplyRequest): SentenceCorrectionResult {
+  const trimmed = request.userInput.trim()
+  const hotel = isHotelContext(request.currentScenario, request.goal)
 
-  if (isExplicitHelpRequest(trimmed) || isChineseDominantInput(trimmed)) {
-    const phrase = pickPhraseForChineseMessage(language, trimmed, turnIndex)
-    return {
-      original: trimmed,
-      corrected: phrase.foreign,
-      pronunciation: phrase.pronunciation,
-      meaningZh: phrase.meaningZh,
-      explanationZh: coachingIntroForLanguage(language),
-      naturalnessTipZh: '你可以試著說一次。',
+  if (hotel) {
+    if (request.language === 'en') {
+      const lower = trimmed.toLowerCase()
+      if (/check[\s-]?in|want to check in/i.test(lower)) {
+        return {
+          original: trimmed,
+          corrected: "I'd like to check in, please.",
+          meaningZh: '我想辦理入住，謝謝。',
+          explanationZh: "在櫃台用 I'd like to... 比 I want... 更禮貌自然。",
+        }
+      }
+      if (/reservation number|12345/i.test(lower)) {
+        const corrected = trimmed.endsWith('.') ? trimmed : `${trimmed}.`
+        return {
+          original: trimmed,
+          corrected,
+          meaningZh: '我的預訂號碼是 12345。',
+          explanationZh: '這是旅客向櫃台提供預訂號碼，不是櫃台人員的回覆。',
+        }
+      }
     }
-  }
 
-  if (language === 'en') {
-    const lower = trimmed.toLowerCase()
-    if (lower.includes('i want check in hotel')) {
-      return {
-        original: trimmed,
-        corrected: "I'd like to check in, please.",
-        meaningZh: '我想辦理入住，謝謝。',
-        explanationZh: '在飯店櫃台用 I\'d like to... 比 I want... 更自然禮貌。',
-        naturalnessTipZh: '你試著打一次看看。',
+    if (isChineseDominantInput(trimmed) && /入住|辦理入住/i.test(trimmed)) {
+      if (request.language === 'ja') {
+        return {
+          original: trimmed,
+          corrected: 'チェックインをお願いします。',
+          pronunciation: 'chekkuin o onegaishimasu',
+          meaningZh: '我想辦理入住。',
+          explanationZh: '在飯店櫃台辦理入住時，這是旅客常用的說法。',
+        }
+      }
+      if (request.language === 'ko') {
+        return {
+          original: trimmed,
+          corrected: '체크인하고 싶습니다.',
+          pronunciation: 'chekeuin-hago sipseumnida',
+          meaningZh: '我想辦理入住。',
+          explanationZh: '在飯店櫃台向服務人員表達入住意願時可用。',
+        }
+      }
+      if (request.language === 'en') {
+        return {
+          original: trimmed,
+          corrected: "I'd like to check in, please.",
+          meaningZh: '我想辦理入住，謝謝。',
+          explanationZh: "在櫃台用 I'd like to... 是旅客辦理入住的常見說法。",
+        }
       }
     }
   }
 
-  if (language === 'ja' && /です$|ます$/.test(trimmed)) {
+  if (isExplicitHelpRequest(trimmed) || isChineseDominantInput(trimmed)) {
+    const phrase = pickPhraseForChineseMessage(request.language, trimmed, 0)
     return {
       original: trimmed,
-      corrected: trimmed,
-      pronunciation: phrase.pronunciation,
+      corrected: phrase.foreign,
+      pronunciation: request.language === 'en' ? undefined : phrase.pronunciation,
       meaningZh: phrase.meaningZh,
-      explanationZh: '這句日文大致可以溝通，語氣也夠禮貌。',
-      naturalnessTipZh: '如果想換個說法，也可以試試看其他建議句。',
+      explanationZh: '根據你想表達的意思，這句適合由你開口說出。',
     }
   }
 
+  if (request.language === 'en') {
+    const lower = trimmed.toLowerCase()
+    if (/want check in|want to check in/i.test(lower)) {
+      return {
+        original: trimmed,
+        corrected: "I'd like to check in, please.",
+        meaningZh: '我想辦理入住，謝謝。',
+        explanationZh: "在櫃台用 I'd like to... 比 I want... 更禮貌自然。",
+      }
+    }
+    if (/reservation number/i.test(lower)) {
+      const corrected = trimmed.endsWith('.') ? trimmed : `${trimmed}.`
+      return {
+        original: trimmed,
+        corrected,
+        meaningZh: '我的預訂號碼。',
+        explanationZh: '這是旅客提供預訂資訊的說法，不是櫃台人員的回覆。',
+      }
+    }
+  }
+
+  if (request.language === 'ja' && /です$|ます$/.test(trimmed)) {
+    return {
+      original: trimmed,
+      corrected: trimmed,
+      meaningZh: '（你的日文句子）',
+      explanationZh: '這句日文大致可以溝通，語氣也夠禮貌。',
+    }
+  }
+
+  const phrase = pickCoachingPhrase(request.language, 0)
   return {
     original: trimmed,
     corrected: phrase.foreign,
-    pronunciation: phrase.pronunciation,
+    pronunciation: request.language === 'en' ? undefined : phrase.pronunciation,
     meaningZh: phrase.meaningZh,
-    explanationZh: '根據你的意思，這句比較適合在這個情境開口。',
-    naturalnessTipZh: phrase.guidanceZh,
+    explanationZh: '根據你的意思，這句比較適合由你開口說出。',
+  }
+}
+
+function inferUserRoleLabel(scenarioTitle: string, goalZh: string): string {
+  const text = `${scenarioTitle} ${goalZh}`
+  if (/飯店|酒店|hotel|入住|check.?in/i.test(text)) {
+    return '旅客'
+  }
+  if (/餐廳|餐館|restaurant|居酒屋|咖啡|cafe|café/i.test(text)) {
+    return '顧客'
+  }
+  if (/店|shop|store|藥妝/i.test(text)) {
+    return '顧客'
+  }
+  return '旅行者'
+}
+
+export { inferUserRoleLabel }
+
+function isHotelContext(scenarioTitle: string, goalZh: string): boolean {
+  return /飯店|酒店|hotel|入住|check.?in/i.test(`${scenarioTitle} ${goalZh}`)
+}
+
+function normalizeSuggestUserReplyRequest(
+  request: SentenceCorrectionRequest | SuggestUserReplyRequest,
+): SuggestUserReplyRequest {
+  const legacy = request as SentenceCorrectionRequest
+  const userInput = request.userInput ?? legacy.sentence ?? ''
+  const currentScenario = request.currentScenario ?? legacy.scenarioTitle ?? ''
+  const goal = request.goal ?? legacy.goalZh ?? ''
+  const aiRole = request.aiRole ?? legacy.roleLabelZh ?? ''
+  return {
+    language: request.language,
+    userInput,
+    currentScenario,
+    aiRole,
+    userRole: request.userRole ?? inferUserRoleLabel(currentScenario, goal),
+    goal,
+    history: request.history,
+  }
+}
+
+function mapSuggestUserReplyResponse(
+  original: string,
+  language: Language,
+  data: {
+    suggestedSentence?: string
+    corrected?: string
+    pronunciation?: string
+    meaningZh?: string
+    explanationZh?: string
+  },
+): SentenceCorrectionResult {
+  const suggestedSentence = data.suggestedSentence ?? data.corrected ?? original
+  return {
+    original,
+    corrected: suggestedSentence,
+    pronunciation: language === 'en' ? undefined : data.pronunciation,
+    meaningZh: data.meaningZh,
+    explanationZh: data.explanationZh ?? '這句比較適合由你開口說出。',
   }
 }
 
@@ -579,7 +693,20 @@ type CoachApiAction =
   | 'custom-scenario'
   | 'start-topic-chat'
   | 'conversation-reply'
+  | 'suggest-user-reply'
   | 'correct-sentence'
+
+function buildSuggestUserReplyApiBody(request: SuggestUserReplyRequest) {
+  return {
+    currentLanguage: request.language,
+    userInput: request.userInput,
+    currentScenario: request.currentScenario,
+    aiRole: request.aiRole,
+    userRole: request.userRole,
+    goal: request.goal,
+    conversationHistory: historyForApi(request.history),
+  }
+}
 
 async function fetchFromApi<T>(action: CoachApiAction, body: Record<string, unknown>): Promise<T> {
   const response = await fetch(API_BASE, {
@@ -688,25 +815,24 @@ export async function suggestTopic(request: TopicSuggestionRequest): Promise<Top
   return startTopicChat(request)
 }
 
+export async function suggestUserReply(
+  request: SuggestUserReplyRequest | SentenceCorrectionRequest,
+): Promise<SentenceCorrectionResult> {
+  const normalized = normalizeSuggestUserReplyRequest(request)
+  return withCoachApi(
+    'suggest-user-reply',
+    buildSuggestUserReplyApiBody(normalized),
+    async () => {
+      await delay(450)
+      return mockSuggestUserReply(normalized)
+    },
+  ).then((data) => mapSuggestUserReplyResponse(normalized.userInput, normalized.language, data))
+}
+
 export async function correctSentence(
   request: SentenceCorrectionRequest,
 ): Promise<SentenceCorrectionResult> {
-  return withCoachApi(
-    'correct-sentence',
-    {
-      language: request.language,
-      sentence: request.sentence,
-      scenarioTitle: request.scenarioTitle,
-      roleLabelZh: request.roleLabelZh,
-      goalZh: request.goalZh,
-      history: historyForApi(request.history),
-    },
-    async () => {
-      await delay(450)
-      const turnIndex = request.history.filter((message) => message.role === 'user').length
-      return mockCoachSpeakHelp(request.language, request.sentence, turnIndex)
-    },
-  )
+  return suggestUserReply(request)
 }
 
 export async function continueTopicConversation(

@@ -245,6 +245,84 @@ ${formatHistory(history)}
   }
 }
 
+const SUGGEST_USER_REPLY_PROMPT = `你是旅行口說教練，任務是幫「使用者」產生他自己可以開口說的下一句。
+這不是接續對話，也不是扮演對方角色。
+
+絕對禁止：
+- 產生店員、櫃檯、服務生、當地人（AI 角色）該說的話
+- 例如禁止：Welcome to our hotel. / May I have your name? / Thank you for your reservation. Your room is ready. / いらっしゃいませ
+- 輸出與目前學習語言不同的語言
+- 輸出與目前情境無關的句子（例如在飯店入住卻給餐廳點餐句）
+
+必須遵守：
+- suggestedSentence 只能是「使用者角色」對 AI 角色說的話
+- 句子語言必須嚴格等於目前學習語言
+- 使用者輸入繁體中文 → 翻成目標語言的使用者台詞
+- 使用者輸入外語 → 修成更自然的使用者台詞，保留原意
+- explanationZh 用繁中說明為何這樣說比較自然`
+
+export async function generateSuggestUserReply(
+  language: CoachLanguage,
+  userInput: string,
+  context: {
+    scenarioTitle: string
+    aiRoleLabelZh: string
+    userRoleLabelZh: string
+    goalZh: string
+  },
+  history: ChatTurn[],
+): Promise<{
+  suggestedSentence: string
+  pronunciation?: string
+  meaningZh: string
+  explanationZh: string
+}> {
+  const system = `${SUGGEST_USER_REPLY_PROMPT}
+${languageInstruction(language)}
+
+目前練習設定：
+- 旅行情境：${context.scenarioTitle}
+- AI 扮演角色（對方）：${context.aiRoleLabelZh}
+- 使用者角色：${context.userRoleLabelZh}
+- 練習目標：${context.goalZh}
+
+範例（飯店入住，學習英文，使用者輸入 I want to check in）：
+suggestedSentence: "I'd like to check in, please."
+meaningZh: "我想辦理入住，謝謝。"
+explanationZh: "在櫃台用 I'd like to... 比 I want... 更禮貌自然。"
+
+範例（飯店入住，學習英文，使用者輸入 My reservation number is 12345）：
+suggestedSentence: "My reservation number is 12345."
+explanationZh: "這是旅客向櫃台提供預訂號碼的說法，不是櫃台人員的回覆。"
+
+只回傳 JSON：
+{
+  "suggestedSentence": "使用者可開口的目標語言句子（只能用目前學習語言）",
+  "pronunciation": "羅馬音/發音輔助（僅 ja/ko，en 請省略或留空）",
+  "meaningZh": "繁體中文意思",
+  "explanationZh": "為什麼這樣說比較自然（繁中）"
+}`
+
+  const user = `近期聊天紀錄：
+${formatHistory(history)}
+
+使用者輸入：${userInput}`
+
+  const result = await callOpenAiJson<{
+    suggestedSentence: string
+    pronunciation?: string
+    meaningZh: string
+    explanationZh: string
+  }>(system, user)
+
+  return {
+    suggestedSentence: result.suggestedSentence,
+    pronunciation: language === 'en' ? undefined : result.pronunciation,
+    meaningZh: result.meaningZh,
+    explanationZh: result.explanationZh,
+  }
+}
+
 export async function generateCoachSpeakHelp(
   language: CoachLanguage,
   sentence: string,
@@ -257,34 +335,21 @@ export async function generateCoachSpeakHelp(
   explanationZh: string
   guidanceZh?: string
 }> {
-  const system = `${COACH_SYSTEM_PROMPT}
-${languageInstruction(language)}
-
-使用者按下「教練幫我說」。請根據情境、聊天紀錄與使用者意思（含繁體中文），產生一句適合當下、可直接開口的目標語言句子。
-- 中文描述想說什麼：翻成目標語言並教學。
-- 中文求救或「我不會說」：給可直接使用的目標語言句子。
-- 目標語言但不太自然：修正並簡短說明。
-- 只是打招呼：給適合情境的自然問候，不要給無關句子。
-
-回覆格式：explanationZh 先用繁中簡短說明，foreignText 為目標語言句子，pronunciation、meaningZh，guidanceZh 引導試著說一次。
-
-目前情境：${context.scenarioTitle}
-你的角色：${context.roleLabelZh}
-練習目標：${context.goalZh}
-
-只回傳 JSON：
-{
-  "foreignText": "建議開口的外語句子",
-  "pronunciation": "發音輔助（ja/ko）",
-  "meaningZh": "中文意思",
-  "explanationZh": "為什麼這句適合這個情境（繁中，一兩句）",
-  "guidanceZh": "鼓勵使用者試著輸入或開口（繁中，可選）"
-}`
-
-  const user = `近期聊天紀錄：
-${formatHistory(history)}
-
-使用者訊息：${sentence}`
-
-  return callOpenAiJson(system, user)
+  const result = await generateSuggestUserReply(
+    language,
+    sentence,
+    {
+      scenarioTitle: context.scenarioTitle,
+      aiRoleLabelZh: context.roleLabelZh,
+      userRoleLabelZh: '旅行者',
+      goalZh: context.goalZh,
+    },
+    history,
+  )
+  return {
+    foreignText: result.suggestedSentence,
+    pronunciation: result.pronunciation,
+    meaningZh: result.meaningZh,
+    explanationZh: result.explanationZh,
+  }
 }

@@ -13,7 +13,8 @@ import {
   type SentenceCorrectionResult,
   type TopicChatSession,
   continueConversation,
-  correctSentence,
+  inferUserRoleLabel,
+  suggestUserReply,
   getCoachAiSource,
   getCoachLastApiError,
   isCoachMockMode,
@@ -403,12 +404,13 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
       if (!sessionInfo) {
         return null
       }
-      return await correctSentence({
+      return await suggestUserReply({
         language,
-        sentence: userMessage.text,
-        scenarioTitle: sessionInfo.scenarioTitle,
-        roleLabelZh: sessionInfo.roleLabelZh,
-        goalZh: sessionInfo.goalZh,
+        userInput: userMessage.text,
+        currentScenario: sessionInfo.scenarioTitle,
+        aiRole: sessionInfo.roleLabelZh,
+        userRole: inferUserRoleLabel(sessionInfo.scenarioTitle, sessionInfo.goalZh),
+        goal: sessionInfo.goalZh,
         history: messages,
       })
     } catch {

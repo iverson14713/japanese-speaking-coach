@@ -25,8 +25,10 @@ export {
   getCoachAiSource,
   getCoachLastApiError,
   getTopicHint,
+  inferUserRoleLabel,
   isCoachMockMode,
   startCustomScenario,
   startTopicChat,
   suggestTopic,
+  suggestUserReply,
 } from './coachService'

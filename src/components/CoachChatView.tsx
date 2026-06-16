@@ -128,7 +128,7 @@ export function CoachChatView({
                             size="small"
                           />
                         </div>
-                        {messageExtras.coachHelpResult.pronunciation ? (
+                        {messageExtras.coachHelpResult.pronunciation && language !== 'en' ? (
                           <p className="coach-chat-pronunciation">
                             {messageExtras.coachHelpResult.pronunciation}
                           </p>

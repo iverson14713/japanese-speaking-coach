@@ -79,6 +79,25 @@ export interface SentenceCorrectionResult {
   naturalnessTipZh?: string
 }
 
+/** @deprecated Use SuggestUserReplyResult fields via corrected alias */
+export interface SuggestUserReplyResult {
+  original: string
+  suggestedSentence: string
+  pronunciation?: string
+  meaningZh: string
+  explanationZh: string
+}
+
+export interface SuggestUserReplyRequest {
+  language: Language
+  userInput: string
+  currentScenario: string
+  aiRole: string
+  userRole: string
+  goal: string
+  history: ChatMessage[]
+}
+
 export interface ConversationReplyResult {
   reply: string
   replyMeaningZh: string
@@ -95,10 +114,19 @@ export interface CustomScenarioRequest {
 
 export interface SentenceCorrectionRequest {
   language: Language
-  sentence: string
-  scenarioTitle: string
-  roleLabelZh: string
-  goalZh: string
+  userInput?: string
+  /** @deprecated Use userInput */
+  sentence?: string
+  currentScenario?: string
+  /** @deprecated Use currentScenario */
+  scenarioTitle?: string
+  aiRole?: string
+  /** @deprecated Use aiRole */
+  roleLabelZh?: string
+  userRole?: string
+  goal?: string
+  /** @deprecated Use goal */
+  goalZh?: string
   history: ChatMessage[]
 }
 
