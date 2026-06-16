@@ -35,6 +35,11 @@ export function useCoachAutoSpeak({
     setIsSpeakingState(false)
   }, [])
 
+  const markExistingAsSpoken = useCallback((nextMessages?: ChatMessage[]) => {
+    const list = nextMessages ?? messages
+    lastSpokenIndexRef.current = findLatestDialogueIndex(list)
+  }, [messages])
+
   const stopCoachSpeech = useCallback(() => {
     stopSpeaking()
     setIsSpeakingState(false)
@@ -64,6 +69,7 @@ export function useCoachAutoSpeak({
   return {
     isSpeaking: isSpeakingState,
     resetAutoSpeak,
+    markExistingAsSpoken,
     stopCoachSpeech,
   }
 }

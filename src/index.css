@@ -1696,6 +1696,24 @@ body {
   border-radius: var(--radius-md);
 }
 
+.coach-clear-chat {
+  margin-left: auto;
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.coach-clear-chat:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .coach-debug-bar {
   display: flex;
   align-items: center;

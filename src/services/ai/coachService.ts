@@ -930,6 +930,7 @@ export async function continueFreeChat(
       language: request.language,
       history: historyForApi(request.history),
       userMessage: request.userMessage,
+      learningSummary: request.learningSummary,
     },
     async () => {
       await delay(500)
@@ -953,6 +954,7 @@ export async function continueConversation(
       plan: request.plan,
       history: historyForApi(request.history),
       userMessage: request.userMessage,
+      learningSummary: request.learningSummary,
     },
     async () => {
       await delay(500)

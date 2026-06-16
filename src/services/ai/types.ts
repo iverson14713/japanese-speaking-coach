@@ -32,6 +32,10 @@ export interface ChatMessage {
   hint?: ChatHint
   /** welcome = 開場白；scenario-meta = 情境說明；dialogue = 對話內容 */
   variant?: 'welcome' | 'scenario-meta' | 'dialogue'
+  /** Unix ms timestamp */
+  createdAt?: number
+  /** Which coach mode this message belongs to */
+  mode?: CoachPracticeMode
 }
 
 export interface ChatSessionInfo {
@@ -143,12 +147,14 @@ export interface ConversationReplyRequest {
   history: ChatMessage[]
   userMessage: string
   practiceMode?: CoachPracticeMode
+  learningSummary?: string
 }
 
 export interface FreeChatReplyRequest {
   language: Language
   history: ChatMessage[]
   userMessage: string
+  learningSummary?: string
 }
 
 export interface TopicSuggestionRequest {

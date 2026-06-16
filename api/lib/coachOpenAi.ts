@@ -205,6 +205,7 @@ export async function generateFreeChatReply(
   language: CoachLanguage,
   history: ChatTurn[],
   userMessage: string,
+  learningSummary?: string,
 ): Promise<{
   reply: string
   replyMeaningZh: string
@@ -217,6 +218,7 @@ export async function generateFreeChatReply(
 ${languageInstruction(language)}
 
 這是「自由聊天」模式，沒有旅行情境或角色扮演。
+${learningSummary?.trim() ? `\n使用者學習摘要（可用來客製化回覆）：\n${learningSummary.trim()}\n` : ''}
 
 範例（學習英文，使用者：Hello）：
 reply: "Hello! What would you like to talk about today?"
@@ -260,6 +262,7 @@ export async function generateConversationReply(
   context: CoachSessionContext,
   history: ChatTurn[],
   userMessage: string,
+  learningSummary?: string,
 ): Promise<{
   reply: string
   replyMeaningZh: string
@@ -276,6 +279,7 @@ ${languageInstruction(context.language)}
 - 你的角色：${context.roleLabelZh}
 - 練習目標：${context.goalZh}
 - 方案：${context.plan === 'free' ? 'Free' : 'Pro'}，本輪最多 ${context.maxTurns} 回合，目前在第 ${context.currentTurn} 回合
+${learningSummary?.trim() ? `\n使用者學習摘要（可用來客製化回覆）：\n${learningSummary.trim()}\n` : ''}
 
 請根據完整聊天紀錄與使用者最新輸入回覆。
 - 繁體中文輸入（描述想說什麼、提問、求救）→ isCoaching=true，用目標語言教他怎麼說。

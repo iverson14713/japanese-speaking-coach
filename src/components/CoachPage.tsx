@@ -42,6 +42,17 @@ import { LanguageSelector } from './LanguageSelector'
 import { useCoachAutoSpeak } from '../hooks/useCoachAutoSpeak'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { showToast } from '../utils/toast'
+import {
+  clearCoachChatSnapshot,
+  clearCoachLearningSummary,
+  hydrateMessagesFromStorage,
+  loadCoachChatSnapshot,
+  loadCoachLearningSummary,
+  saveCoachChatSnapshot,
+  saveCoachLearningSummary,
+  serializeMessagesForStorage,
+  takeRecentHistoryForApi,
+} from '../utils/aiCoachChatStorage'
 
 interface CoachPageProps {
   language: Language
@@ -128,7 +139,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
       onError: handleSpeechError,
     })
 
-  const { isSpeaking, resetAutoSpeak, stopCoachSpeech } = useCoachAutoSpeak({
+  const { isSpeaking, resetAutoSpeak, markExistingAsSpoken, stopCoachSpeech } = useCoachAutoSpeak({
     messages,
     language,
     enabled: autoSpeakEnabled,
@@ -176,8 +187,84 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
 
   useEffect(() => {
     refreshUsage()
-    resetToWelcome()
+    const snapshot = loadCoachChatSnapshot(language)
+    if (!snapshot) {
+      resetToWelcome()
+      return
+    }
+
+    stopCoachSpeech()
+    resetAutoSpeak()
+
+    setPracticeMode(snapshot.practiceMode)
+    setPhase(snapshot.phase)
+    setChatMode(snapshot.practiceMode === 'scenario-practice' ? (snapshot.sessionInfo ? 'custom' : null) : null)
+    setError(null)
+    setTopicSession(null)
+    setSessionInfo(snapshot.sessionInfo)
+    setScenarioKey(snapshot.scenarioKey)
+    setUserTurns(snapshot.userTurns)
+    setCustomHints([])
+    setAwaitingCustomInput(false)
+
+    const hydrated = hydrateMessagesFromStorage(snapshot.messages)
+    setMessages(hydrated.length > 0 ? hydrated : createWelcomeMessages('free-chat', language))
+    markExistingAsSpoken(hydrated)
   }, [language, refreshUsage])
+
+  useEffect(() => {
+    const stored = serializeMessagesForStorage(language, practiceMode, messages)
+    saveCoachChatSnapshot({
+      version: 1,
+      savedAt: Date.now(),
+      language,
+      practiceMode,
+      phase,
+      sessionInfo,
+      scenarioKey,
+      userTurns,
+      messages: stored,
+    })
+  }, [language, practiceMode, phase, sessionInfo, scenarioKey, userTurns, messages])
+
+  const updateLearningSummary = useCallback(
+    (nextMessages: ChatMessage[]) => {
+      const recentUsers = nextMessages.filter((m) => m.role === 'user').slice(-10)
+      const usedChineseHelp = recentUsers.some((m) => /[\u4e00-\u9fff]/.test(m.text))
+      const scenario = sessionInfo?.scenarioTitle
+      const modeLabel = practiceMode === 'free-chat' ? '自由聊天' : '情境練習'
+      const summary = [
+        `偏好模式：${modeLabel}`,
+        `偏好語言：${language === 'en' ? '英文' : language === 'ja' ? '日文' : '韓文'}`,
+        scenario ? `常練情境：${scenario}` : null,
+        `中文求助：${usedChineseHelp ? '常用' : '偶爾/較少'}`,
+        '下次建議：用 1 句簡短自我介紹＋1 句反問，把對話接起來。',
+      ]
+        .filter(Boolean)
+        .join('\n')
+      saveCoachLearningSummary(language, summary)
+    },
+    [language, practiceMode, sessionInfo],
+  )
+
+  function handleClearChat() {
+    stopCoachSpeech()
+    resetAutoSpeak()
+    clearCoachChatSnapshot(language)
+    clearCoachLearningSummary(language)
+    setPracticeMode('free-chat')
+    setPhase('welcome')
+    setChatMode(null)
+    setError(null)
+    setTopicSession(null)
+    setSessionInfo(null)
+    setMessages(createWelcomeMessages('free-chat', language))
+    setInput('')
+    setUserTurns(0)
+    setScenarioKey('')
+    setCustomHints([])
+    setAwaitingCustomInput(false)
+  }
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -390,9 +477,15 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
 
     const previousMessages = messages
     const isFirstMessage = phase === 'welcome'
+    const userMessage: ChatMessage = {
+      role: 'user',
+      text,
+      createdAt: Date.now(),
+      mode: 'free-chat',
+    }
     const history: ChatMessage[] = isFirstMessage
-      ? [...messages.filter((message) => message.variant !== 'welcome'), { role: 'user', text }]
-      : [...messages, { role: 'user', text }]
+      ? [...messages.filter((message) => message.variant !== 'welcome'), userMessage]
+      : [...messages, userMessage]
 
     if (isFirstMessage) {
       consumeCoachSession(language)
@@ -403,13 +496,17 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     setMessages(history)
 
     try {
+      const apiHistory = takeRecentHistoryForApi(history)
+      const learningSummary = loadCoachLearningSummary(language)
       const reply = await continueFreeChat({
         language,
-        history,
+        history: apiHistory,
         userMessage: text,
+        learningSummary,
       })
 
-      setMessages((current) => [
+      setMessages((current) => {
+        const next = [
         ...current,
         {
           role: 'assistant',
@@ -419,8 +516,13 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
           coachingZh: reply.coachingZh,
           guidanceZh: reply.guidanceZh,
           variant: 'dialogue',
+          createdAt: Date.now(),
+          mode: 'free-chat',
         },
-      ])
+      ] as ChatMessage[]
+        updateLearningSummary(next)
+        return next
+      })
     } catch {
       setError(formatAiConnectionError(debugMode))
       setMessages(previousMessages)
@@ -468,11 +570,16 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     const previousUserTurns = userTurns
 
     const nextUserTurn = userTurns + 1
-    const history: ChatMessage[] = [...messages, { role: 'user', text }]
+    const history: ChatMessage[] = [
+      ...messages,
+      { role: 'user', text, createdAt: Date.now(), mode: 'scenario-practice' },
+    ]
     setMessages(history)
     setUserTurns(nextUserTurn)
 
     try {
+      const apiHistory = takeRecentHistoryForApi(history)
+      const learningSummary = loadCoachLearningSummary(language)
       const reply = await continueConversation({
         language,
         scenario: scenarioKey,
@@ -481,14 +588,16 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         maxTurns,
         currentTurn: nextUserTurn,
         plan,
-        history,
+        history: apiHistory,
         userMessage: text,
         practiceMode: 'scenario-practice',
+        learningSummary,
       })
 
-      setMessages((current) => [
-        ...current,
-        {
+      setMessages((current) => {
+        const next = [
+          ...current,
+          {
           role: 'assistant',
           text: reply.reply,
           meaningZh: reply.replyMeaningZh,
@@ -497,8 +606,13 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
           guidanceZh: reply.guidanceZh,
           variant: 'dialogue',
           hint: reply.hint ?? getDialogueHint(nextUserTurn),
+          createdAt: Date.now(),
+          mode: 'scenario-practice',
         },
-      ])
+        ] as ChatMessage[]
+        updateLearningSummary(next)
+        return next
+      })
 
       if (nextUserTurn >= maxTurns) {
         setPhase('ended')
@@ -665,6 +779,9 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         {import.meta.env.DEV && isCoachMockMode() ? (
           <span className="coach-usage-badge">Mock 模式</span>
         ) : null}
+        <button type="button" className="coach-clear-chat" onClick={handleClearChat} disabled={loading}>
+          清除對話
+        </button>
       </div>
 
       {error ? (
