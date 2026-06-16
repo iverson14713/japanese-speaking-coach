@@ -6,6 +6,7 @@ import { TodayPage } from './components/TodayPage'
 import { SentencePracticePage } from './components/SentencePracticePage'
 import { DialoguePage } from './components/DialoguePage'
 import { DialogueDetailPage } from './components/DialogueDetailPage'
+import { CoachPage } from './components/CoachPage'
 
 function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('today')
@@ -34,6 +35,8 @@ function App() {
         <TodayPage language={language} onLanguageChange={handleLanguageChange} />
       ) : activeTab === 'library' ? (
         <SentencePracticePage language={language} onLanguageChange={handleLanguageChange} />
+      ) : activeTab === 'coach' ? (
+        <CoachPage language={language} onLanguageChange={handleLanguageChange} />
       ) : dialogueCategory ? (
         <DialogueDetailPage
           key={`${language}-${dialogueCategory}`}
