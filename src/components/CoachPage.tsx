@@ -835,14 +835,14 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
       <div className="coach-usage-bar coach-usage-bar--compact" role="status">
         <p className="coach-usage-text">
           {debugMode
-            ? '今日 AI 練習能量：不限次數'
-            : `今日 AI 練習能量：${remainingSessions} / ${dailyLimit}`}
+            ? '⚡ 測試模式：不限次數'
+            : `⚡ 今日能量：${remainingSessions} / ${dailyLimit}`}
         </p>
         {import.meta.env.DEV && isCoachMockMode() ? (
           <span className="coach-usage-badge">Mock 模式</span>
         ) : null}
         <button type="button" className="coach-clear-chat" onClick={handleClearChat} disabled={loading}>
-          清除對話
+          清除
         </button>
       </div>
 

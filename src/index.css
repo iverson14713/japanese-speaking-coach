@@ -1364,7 +1364,7 @@ body {
 
 .coach-usage-bar--compact {
   margin: 4px 0 8px;
-  padding: 8px 12px;
+  padding: 0;
 }
 
 .coach-chat-shell {
@@ -1481,14 +1481,14 @@ body {
 .coach-practice-mode-bar {
   display: flex;
   gap: 6px;
-  padding: 0 20px 4px;
+  padding: 0 20px 2px;
 }
 
 .coach-practice-mode {
   flex: 1;
-  padding: 8px 12px;
+  padding: 6px 12px;
   font-family: inherit;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 500;
   color: var(--color-text-secondary);
   background: var(--color-bg-card);
@@ -1697,11 +1697,12 @@ body {
 
 .coach-usage-bar {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
   margin: 8px 0 10px;
-  padding: 12px 14px;
+  padding: 0 12px;
+  height: 42px;
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -1709,12 +1710,12 @@ body {
 
 .coach-clear-chat {
   margin-left: auto;
-  padding: 6px 10px;
+  padding: 5px 10px;
   font-family: inherit;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 600;
   color: var(--color-text-secondary);
-  background: var(--color-bg-card);
+  background: transparent;
   border: 1px solid var(--color-border);
   border-radius: 999px;
   cursor: pointer;
@@ -1728,12 +1729,14 @@ body {
 .coach-debug-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin: 4px 0 8px;
-  padding: 8px 12px;
+  padding: 0 12px;
+  height: 40px;
   background: #fff8e8;
   border: 1px solid #f0dfa8;
   border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .coach-debug-badge {
@@ -1746,9 +1749,10 @@ body {
 }
 
 .coach-debug-source {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 500;
   color: #6b5340;
+  white-space: nowrap;
 }
 
 .coach-debug-off {
@@ -1769,10 +1773,11 @@ body {
 }
 
 .coach-usage-text {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: var(--color-text);
   line-height: 1.4;
+  white-space: nowrap;
 }
 
 .coach-usage-hint {
@@ -1782,7 +1787,8 @@ body {
 }
 
 .coach-usage-badge {
-  margin-top: 4px;
+  margin-top: 0;
+  flex-shrink: 0;
   font-size: 0.68rem;
   font-weight: 500;
   color: var(--color-primary-dark);
