@@ -42,6 +42,10 @@ function chatKey(language: Language, mode: CoachPracticeMode): string {
   return `${CHAT_STORAGE_PREFIX}_${language}_${keyModeSuffix(mode)}`
 }
 
+function legacyChatKey(language: Language): string {
+  return `${CHAT_STORAGE_PREFIX}_${language}`
+}
+
 function summaryKey(language: Language): string {
   return `${SUMMARY_STORAGE_PREFIX}_${language}`
 }
@@ -50,6 +54,30 @@ export function loadCoachChatSnapshot(language: Language, mode: CoachPracticeMod
   try {
     const raw = localStorage.getItem(chatKey(language, mode))
     if (!raw) {
+      // Migration: older versions stored a single chat per language under `aiCoachChat_{lang}`.
+      // We migrate that legacy data into the freeChat bucket on first load.
+      if (mode === 'free-chat') {
+        const legacyRaw = localStorage.getItem(legacyChatKey(language))
+        if (legacyRaw) {
+          const legacyParsed = JSON.parse(legacyRaw) as Partial<CoachChatSnapshot>
+          if (legacyParsed && legacyParsed.version === 1 && legacyParsed.language === language) {
+            const migrated: CoachChatSnapshot = {
+              version: 1,
+              savedAt: typeof legacyParsed.savedAt === 'number' ? legacyParsed.savedAt : Date.now(),
+              language,
+              practiceMode: 'free-chat',
+              phase: legacyParsed.phase === 'active' || legacyParsed.phase === 'ended' ? legacyParsed.phase : 'welcome',
+              sessionInfo: (legacyParsed.sessionInfo as ChatSessionInfo | null) ?? null,
+              scenarioKey: typeof legacyParsed.scenarioKey === 'string' ? legacyParsed.scenarioKey : '',
+              userTurns: typeof legacyParsed.userTurns === 'number' ? legacyParsed.userTurns : 0,
+              messages: Array.isArray(legacyParsed.messages) ? (legacyParsed.messages as StoredMessage[]) : [],
+            }
+            localStorage.setItem(chatKey(language, 'free-chat'), JSON.stringify(migrated))
+            localStorage.removeItem(legacyChatKey(language))
+            return migrated
+          }
+        }
+      }
       return null
     }
     const parsed = JSON.parse(raw) as CoachChatSnapshot
@@ -71,6 +99,8 @@ export function loadCoachChatSnapshot(language: Language, mode: CoachPracticeMod
 export function saveCoachChatSnapshot(snapshot: CoachChatSnapshot): void {
   try {
     localStorage.setItem(chatKey(snapshot.language, snapshot.practiceMode), JSON.stringify(snapshot))
+    // Clean up legacy key if it exists to avoid confusion.
+    localStorage.removeItem(legacyChatKey(snapshot.language))
   } catch {
     // Ignore storage errors
   }
