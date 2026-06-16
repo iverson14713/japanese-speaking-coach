@@ -43,14 +43,13 @@ import { useCoachAutoSpeak } from '../hooks/useCoachAutoSpeak'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { showToast } from '../utils/toast'
 import {
+  buildCoachChatSnapshot,
   clearCoachChatSnapshot,
   clearCoachLearningSummary,
-  hydrateMessagesFromStorage,
-  loadCoachChatSnapshot,
   loadCoachLearningSummary,
+  readInitialCoachState,
   saveCoachChatSnapshot,
   saveCoachLearningSummary,
-  serializeMessagesForStorage,
   takeRecentHistoryForApi,
 } from '../utils/aiCoachChatStorage'
 
@@ -83,24 +82,29 @@ function formatAiConnectionError(debugMode: boolean): string {
 }
 
 export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
+  const initialCoachStateRef = useRef(readInitialCoachState(language))
+  const initialCoach = initialCoachStateRef.current
+
   const [plan] = useState<CoachPlan>(DEFAULT_PLAN)
   const [remainingSessions, setRemainingSessions] = useState(() =>
     getRemainingCoachSessions(DEFAULT_PLAN, language),
   )
-  const [phase, setPhase] = useState<CoachPhase>('welcome')
-  const [practiceMode, setPracticeMode] = useState<CoachPracticeMode>('free-chat')
+  const [phase, setPhase] = useState<CoachPhase>(initialCoach.phase)
+  const [practiceMode, setPracticeMode] = useState<CoachPracticeMode>(initialCoach.practiceMode)
   const [chatMode, setChatMode] = useState<ChatMode>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [scenarioKey, setScenarioKey] = useState('')
+  const [scenarioKey, setScenarioKey] = useState(initialCoach.scenarioKey)
   const [topicSession, setTopicSession] = useState<TopicChatSession | null>(null)
-  const [sessionInfo, setSessionInfo] = useState<ChatSessionInfo | null>(null)
+  const [sessionInfo, setSessionInfo] = useState<ChatSessionInfo | null>(initialCoach.sessionInfo)
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    createWelcomeMessages('free-chat', language),
+    initialCoach.hasStoredChat
+      ? initialCoach.messages
+      : createWelcomeMessages('free-chat', language),
   )
   const [input, setInput] = useState('')
-  const [userTurns, setUserTurns] = useState(0)
+  const [userTurns, setUserTurns] = useState(initialCoach.userTurns)
   const [customHints, setCustomHints] = useState<TopicChatSession['hints']>([])
   const [awaitingCustomInput, setAwaitingCustomInput] = useState(false)
   const [voiceInputMode, setVoiceInputMode] = useState<VoiceInputMode>('zh-coach')
@@ -111,6 +115,8 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   const titleTapRef = useRef({ count: 0, lastTapAt: 0 })
   const inputRef = useRef<HTMLInputElement>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const prevLanguageRef = useRef(language)
+  const skipNextSaveRef = useRef(true)
 
   const handleSpeechResult = useCallback((transcript: string) => {
     if (!transcript.trim()) {
@@ -186,46 +192,70 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   }, [syncDebugState, refreshUsage])
 
   useEffect(() => {
+    if (initialCoach.hasStoredChat) {
+      markExistingAsSpoken(initialCoach.messages)
+    }
+  }, [initialCoach.hasStoredChat, initialCoach.messages, markExistingAsSpoken])
+
+  useEffect(() => {
+    if (prevLanguageRef.current === language) {
+      return
+    }
+
+    prevLanguageRef.current = language
+    skipNextSaveRef.current = true
     refreshUsage()
-    const snapshot = loadCoachChatSnapshot(language)
-    if (!snapshot) {
+
+    const nextCoach = readInitialCoachState(language)
+    stopCoachSpeech()
+    resetAutoSpeak()
+
+    if (!nextCoach.hasStoredChat) {
       resetToWelcome()
       return
     }
 
-    stopCoachSpeech()
-    resetAutoSpeak()
-
-    setPracticeMode(snapshot.practiceMode)
-    setPhase(snapshot.phase)
-    setChatMode(snapshot.practiceMode === 'scenario-practice' ? (snapshot.sessionInfo ? 'custom' : null) : null)
+    setPracticeMode(nextCoach.practiceMode)
+    setPhase(nextCoach.phase)
+    setChatMode(nextCoach.practiceMode === 'scenario-practice' ? 'custom' : null)
     setError(null)
     setTopicSession(null)
-    setSessionInfo(snapshot.sessionInfo)
-    setScenarioKey(snapshot.scenarioKey)
-    setUserTurns(snapshot.userTurns)
+    setSessionInfo(nextCoach.sessionInfo)
+    setScenarioKey(nextCoach.scenarioKey)
+    setUserTurns(nextCoach.userTurns)
     setCustomHints([])
     setAwaitingCustomInput(false)
+    setMessages(nextCoach.messages)
+    markExistingAsSpoken(nextCoach.messages)
+  }, [language, refreshUsage, resetAutoSpeak, stopCoachSpeech])
 
-    const hydrated = hydrateMessagesFromStorage(snapshot.messages)
-    setMessages(hydrated.length > 0 ? hydrated : createWelcomeMessages('free-chat', language))
-    markExistingAsSpoken(hydrated)
-  }, [language, refreshUsage])
+  const persistCoachChat = useCallback(() => {
+    saveCoachChatSnapshot(
+      buildCoachChatSnapshot({
+        language,
+        practiceMode,
+        phase,
+        sessionInfo,
+        scenarioKey,
+        userTurns,
+        messages,
+      }),
+    )
+  }, [language, practiceMode, phase, sessionInfo, scenarioKey, userTurns, messages])
 
   useEffect(() => {
-    const stored = serializeMessagesForStorage(language, practiceMode, messages)
-    saveCoachChatSnapshot({
-      version: 1,
-      savedAt: Date.now(),
-      language,
-      practiceMode,
-      phase,
-      sessionInfo,
-      scenarioKey,
-      userTurns,
-      messages: stored,
-    })
-  }, [language, practiceMode, phase, sessionInfo, scenarioKey, userTurns, messages])
+    if (skipNextSaveRef.current) {
+      skipNextSaveRef.current = false
+      return
+    }
+    persistCoachChat()
+  }, [persistCoachChat])
+
+  useEffect(() => {
+    return () => {
+      persistCoachChat()
+    }
+  }, [persistCoachChat])
 
   const updateLearningSummary = useCallback(
     (nextMessages: ChatMessage[]) => {

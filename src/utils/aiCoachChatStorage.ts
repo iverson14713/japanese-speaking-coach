@@ -61,6 +61,63 @@ export function saveCoachChatSnapshot(snapshot: CoachChatSnapshot): void {
   }
 }
 
+export type InitialCoachState = {
+  practiceMode: CoachPracticeMode
+  phase: 'welcome' | 'active' | 'ended'
+  sessionInfo: ChatSessionInfo | null
+  scenarioKey: string
+  userTurns: number
+  messages: ChatMessage[]
+  hasStoredChat: boolean
+}
+
+export function readInitialCoachState(language: Language): InitialCoachState {
+  const snapshot = loadCoachChatSnapshot(language)
+  if (!snapshot || snapshot.messages.length === 0) {
+    return {
+      practiceMode: 'free-chat',
+      phase: 'welcome',
+      sessionInfo: null,
+      scenarioKey: '',
+      userTurns: 0,
+      messages: [],
+      hasStoredChat: false,
+    }
+  }
+
+  return {
+    practiceMode: snapshot.practiceMode,
+    phase: snapshot.phase,
+    sessionInfo: snapshot.sessionInfo,
+    scenarioKey: snapshot.scenarioKey,
+    userTurns: snapshot.userTurns,
+    messages: hydrateMessagesFromStorage(snapshot.messages),
+    hasStoredChat: true,
+  }
+}
+
+export function buildCoachChatSnapshot(input: {
+  language: Language
+  practiceMode: CoachPracticeMode
+  phase: 'welcome' | 'active' | 'ended'
+  sessionInfo: ChatSessionInfo | null
+  scenarioKey: string
+  userTurns: number
+  messages: ChatMessage[]
+}): CoachChatSnapshot {
+  return {
+    version: 1,
+    savedAt: Date.now(),
+    language: input.language,
+    practiceMode: input.practiceMode,
+    phase: input.phase,
+    sessionInfo: input.sessionInfo,
+    scenarioKey: input.scenarioKey,
+    userTurns: input.userTurns,
+    messages: serializeMessagesForStorage(input.language, input.practiceMode, input.messages),
+  }
+}
+
 export function clearCoachChatSnapshot(language: Language): void {
   try {
     localStorage.removeItem(chatKey(language))

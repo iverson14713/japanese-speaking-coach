@@ -42,22 +42,29 @@ function App() {
         <TodayPage language={language} onLanguageChange={handleLanguageChange} />
       ) : activeTab === 'library' ? (
         <SentencePracticePage language={language} onLanguageChange={handleLanguageChange} />
-      ) : activeTab === 'coach' ? (
+      ) : activeTab === 'dialogue' ? (
+        dialogueCategory ? (
+          <DialogueDetailPage
+            key={`${language}-${dialogueCategory}`}
+            language={language}
+            category={dialogueCategory}
+            onBack={handleDialogueBack}
+          />
+        ) : (
+          <DialoguePage
+            language={language}
+            onLanguageChange={handleLanguageChange}
+            onSelectScenario={setDialogueCategory}
+          />
+        )
+      ) : null}
+
+      <div
+        className={activeTab === 'coach' ? 'coach-tab-root' : 'coach-tab-root coach-tab-root--hidden'}
+        aria-hidden={activeTab !== 'coach'}
+      >
         <CoachPage language={language} onLanguageChange={handleLanguageChange} />
-      ) : dialogueCategory ? (
-        <DialogueDetailPage
-          key={`${language}-${dialogueCategory}`}
-          language={language}
-          category={dialogueCategory}
-          onBack={handleDialogueBack}
-        />
-      ) : (
-        <DialoguePage
-          language={language}
-          onLanguageChange={handleLanguageChange}
-          onSelectScenario={setDialogueCategory}
-        />
-      )}
+      </div>
 
       <BottomTabBar activeTab={activeTab} onTabChange={handleTabChange} />
     </div>

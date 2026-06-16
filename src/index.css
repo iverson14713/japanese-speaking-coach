@@ -49,6 +49,10 @@ body {
 
 /* ── Layout ── */
 
+.coach-tab-root--hidden {
+  display: none;
+}
+
 .app {
   width: 100%;
   max-width: var(--max-width);
