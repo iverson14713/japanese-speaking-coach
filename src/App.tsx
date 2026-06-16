@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { Language } from './data/types'
+import { syncAiCoachDebugFromUrl } from './utils/aiCoachDebugMode'
 import type { DialogueCategoryId } from './data/dialogues'
 import { BottomTabBar, type AppTab } from './components/BottomTabBar'
 import { TodayPage } from './components/TodayPage'
@@ -28,6 +29,10 @@ function App() {
       setDialogueCategory(null)
     }
   }
+
+  useEffect(() => {
+    syncAiCoachDebugFromUrl()
+  }, [])
 
   return (
     <div className="app">

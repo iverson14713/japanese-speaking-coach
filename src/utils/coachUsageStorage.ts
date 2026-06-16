@@ -1,6 +1,7 @@
 import type { Language } from '../data/types'
 import type { CoachPlan } from '../services/ai/types'
 import { COACH_LIMITS } from '../services/ai/types'
+import { AI_COACH_DEBUG_MAX_TURNS, isAiCoachDebugMode } from './aiCoachDebugMode'
 import { getTodayDateKey } from './dateKey'
 
 const STORAGE_PREFIX = 'travel-speaking-coach-coach-usage'
@@ -39,15 +40,24 @@ export function getCoachSessionsUsed(language: Language): number {
 }
 
 export function getRemainingCoachSessions(plan: CoachPlan, language: Language): number {
+  if (isAiCoachDebugMode()) {
+    return COACH_LIMITS[plan].dailySessions
+  }
   const limit = COACH_LIMITS[plan].dailySessions
   return Math.max(0, limit - getCoachSessionsUsed(language))
 }
 
 export function canStartCoachSession(plan: CoachPlan, language: Language): boolean {
+  if (isAiCoachDebugMode()) {
+    return true
+  }
   return getRemainingCoachSessions(plan, language) > 0
 }
 
 export function consumeCoachSession(language: Language): void {
+  if (isAiCoachDebugMode()) {
+    return
+  }
   const data = loadData(language)
   saveData(language, {
     dateKey: getTodayDateKey(),
@@ -56,5 +66,8 @@ export function consumeCoachSession(language: Language): void {
 }
 
 export function getMaxTurnsForPlan(plan: CoachPlan): number {
+  if (isAiCoachDebugMode()) {
+    return AI_COACH_DEBUG_MAX_TURNS
+  }
   return COACH_LIMITS[plan].maxTurnsPerSession
 }

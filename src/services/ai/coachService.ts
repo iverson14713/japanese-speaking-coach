@@ -7,8 +7,9 @@ import type {
   CustomScenarioResult,
   SentenceCorrectionRequest,
   SentenceCorrectionResult,
+  TopicChatSession,
+  TopicConversationRequest,
   TopicSuggestionRequest,
-  TopicSuggestionResult,
 } from './types'
 
 const API_BASE = import.meta.env.VITE_AI_API_BASE ?? ''
@@ -18,100 +19,227 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-const TOPIC_POOL: Record<
-  Language,
-  {
-    scenarioTitle: string
-    scenarioDescriptionZh: string
-    openingLine: string
-    openingMeaningZh: string
-    openingPronunciation?: string
-    suggestedReply: string
-    suggestedReplyMeaningZh: string
-  }[]
-> = {
+const TOPIC_POOL: Record<Language, TopicChatSession[]> = {
   ja: [
     {
       scenarioTitle: '便利商店結帳',
-      scenarioDescriptionZh: '你在日本便利商店買完東西，店員問你要不要袋子。',
+      roleLabelZh: '店員',
+      goalZh: '完成結帳並回答要不要袋子',
       openingLine: 'レジ袋はご利用ですか？',
       openingMeaningZh: '需要塑膠袋嗎？',
       openingPronunciation: 'reji bukuro wa goriyou desu ka',
-      suggestedReply: 'いりません、ありがとうございます。',
-      suggestedReplyMeaningZh: '不用了，謝謝。',
-    },
-    {
-      scenarioTitle: '電車上搭話',
-      scenarioDescriptionZh: '旁邊的日本人注意到你的地圖，主動問你需要幫忙嗎。',
-      openingLine: 'どこかお困りですか？',
-      openingMeaningZh: '有什麼需要幫忙的嗎？',
-      openingPronunciation: 'doko ka okomari desu ka',
-      suggestedReply: '駅はどこですか？',
-      suggestedReplyMeaningZh: '車站在哪裡？',
+      hints: [
+        { text: 'いりません、ありがとうございます。', meaningZh: '不用了，謝謝。' },
+        { text: 'カードでお願いします。', meaningZh: '請用信用卡。' },
+        { text: 'レシートは大丈夫です。', meaningZh: '收據不用了。' },
+      ],
+      followUpReplies: [
+        {
+          reply: 'かしこまりました。お会計は〇〇円です。',
+          replyMeaningZh: '好的，總共是〇〇日圓。',
+          replyPronunciation: 'kashikomarimashita. okaikei wa maru maru en desu',
+        },
+        {
+          reply: 'ありがとうございました。またお越しください。',
+          replyMeaningZh: '謝謝惠顧，歡迎再來。',
+          replyPronunciation: 'arigatou gozaimashita. mata okoshi kudasai',
+        },
+      ],
     },
     {
       scenarioTitle: '居酒屋點餐',
-      scenarioDescriptionZh: '你第一次進居酒屋，服務生來幫你點第一杯飲料。',
-      openingLine: 'お飲み物はいかがなさいますか？',
-      openingMeaningZh: '請問要喝什麼？',
-      openingPronunciation: 'onomono wa ikaga nasaimasu ka',
-      suggestedReply: '生ビールをお願いします。',
-      suggestedReplyMeaningZh: '請給我生啤酒。',
+      roleLabelZh: '店員',
+      goalZh: '點一杯飲料',
+      openingLine: 'いらっしゃいませ。お飲み物は何になさいますか？',
+      openingMeaningZh: '歡迎光臨，請問要喝什麼？',
+      openingPronunciation: 'irasshaimase. onomono wa nani ni nasaimasu ka',
+      hints: [
+        { text: '生ビールをお願いします。', meaningZh: '請給我生啤酒。' },
+        { text: 'お水をください。', meaningZh: '請給我水。' },
+        { text: 'おすすめは何ですか？', meaningZh: '有什麼推薦的嗎？' },
+      ],
+      followUpReplies: [
+        {
+          reply: 'はい、生ビールですね。他にご注文はありますか？',
+          replyMeaningZh: '好的，生啤酒。還需要點其他的嗎？',
+          replyPronunciation: 'hai, nama biiru desu ne. hoka ni gochuumon wa arimasu ka',
+        },
+        {
+          reply: 'かしこまりました。少々お待ちください。',
+          replyMeaningZh: '好的，請稍等一下。',
+          replyPronunciation: 'kashikomarimashita. shoushou omachi kudasai',
+        },
+      ],
+    },
+    {
+      scenarioTitle: '電車上問路',
+      roleLabelZh: '當地人',
+      goalZh: '問清楚車站怎麼走',
+      openingLine: 'どこかお困りですか？',
+      openingMeaningZh: '有什麼需要幫忙的嗎？',
+      openingPronunciation: 'doko ka okomari desu ka',
+      hints: [
+        { text: '駅はどこですか？', meaningZh: '車站在哪裡？' },
+        { text: '新宿駅に行きたいです。', meaningZh: '我想去新宿站。' },
+        { text: 'この電車は渋谷に行きますか？', meaningZh: '這班電車會去澀谷嗎？' },
+      ],
+      followUpReplies: [
+        {
+          reply: '新宿なら、この電車で大丈夫ですよ。',
+          replyMeaningZh: '去新宿的話，搭這班電車就可以了。',
+          replyPronunciation: 'shinjuku nara, kono densha de daijoubu desu yo',
+        },
+        {
+          reply: '次の駅で乗り換えてください。',
+          replyMeaningZh: '請在下一站換車。',
+          replyPronunciation: 'tsugi no eki de norikaete kudasai',
+        },
+      ],
     },
   ],
   en: [
     {
       scenarioTitle: 'Hotel check-in',
-      scenarioDescriptionZh: '你剛到飯店櫃台，服務人員跟你打招呼。',
+      roleLabelZh: '櫃台人員',
+      goalZh: '完成入住登記',
       openingLine: 'Good evening. Do you have a reservation?',
       openingMeaningZh: '晚安，請問您有預訂嗎？',
-      suggestedReply: 'Yes, under Chen. I booked for two nights.',
-      suggestedReplyMeaningZh: '有的，姓 Chen，我訂了兩晚。',
+      hints: [
+        { text: 'Yes, under Chen. I booked for two nights.', meaningZh: '有的，姓 Chen，我訂了兩晚。' },
+        { text: 'I have a booking through Booking.com.', meaningZh: '我在 Booking.com 上有訂房。' },
+        { text: 'Could I check in early?', meaningZh: '我可以提早入住嗎？' },
+      ],
+      followUpReplies: [
+        {
+          reply: 'Great. May I see your passport, please?',
+          replyMeaningZh: '好的，可以看一下您的護照嗎？',
+        },
+        {
+          reply: 'Your room is ready. Here is your key card.',
+          replyMeaningZh: '您的房間準備好了，這是房卡。',
+        },
+      ],
     },
     {
       scenarioTitle: 'Coffee shop order',
-      scenarioDescriptionZh: '你在國外咖啡店，店員問你要什麼。',
+      roleLabelZh: '店員',
+      goalZh: '點一杯飲料',
       openingLine: 'Hi there! What can I get for you today?',
       openingMeaningZh: '嗨！今天想點什麼？',
-      suggestedReply: 'Can I have a latte, please?',
-      suggestedReplyMeaningZh: '可以給我一杯拿鐵嗎？',
+      hints: [
+        { text: 'Can I have a latte, please?', meaningZh: '可以給我一杯拿鐵嗎？' },
+        { text: 'Do you have anything hot?', meaningZh: '有熱的飲料嗎？' },
+        { text: 'For here, please.', meaningZh: '內用，謝謝。' },
+      ],
+      followUpReplies: [
+        {
+          reply: 'Sure. Would you like that hot or iced?',
+          replyMeaningZh: '好的，要熱的還是冰的？',
+        },
+        {
+          reply: 'That will be $4.50. Cash or card?',
+          replyMeaningZh: '總共 4.5 美元，現金還是刷卡？',
+        },
+      ],
     },
     {
       scenarioTitle: 'Asking for directions',
-      scenarioDescriptionZh: '你在街頭向路人問路。',
+      roleLabelZh: '路人',
+      goalZh: '問清楚地鐵站方向',
       openingLine: 'Sorry, you look a bit lost. Need some help?',
       openingMeaningZh: '不好意思，你看起來有點迷路，需要幫忙嗎？',
-      suggestedReply: 'Yes, could you tell me where the subway is?',
-      suggestedReplyMeaningZh: '是的，請問地鐵站在哪？',
+      hints: [
+        { text: 'Yes, could you tell me where the subway is?', meaningZh: '是的，請問地鐵站在哪？' },
+        { text: 'Is it far from here?', meaningZh: '離這裡遠嗎？' },
+        { text: 'Should I turn left or right?', meaningZh: '我該左轉還是右轉？' },
+      ],
+      followUpReplies: [
+        {
+          reply: 'Go straight for two blocks, then turn left.',
+          replyMeaningZh: '直走兩個路口，然後左轉。',
+        },
+        {
+          reply: 'You will see the station on your right.',
+          replyMeaningZh: '你會在右手邊看到車站。',
+        },
+      ],
     },
   ],
   ko: [
     {
       scenarioTitle: '카페 주문',
-      scenarioDescriptionZh: '你在韓國咖啡店點飲料。',
+      roleLabelZh: '店員',
+      goalZh: '點一杯飲料',
       openingLine: '어서 오세요. 주문하시겠어요?',
       openingMeaningZh: '歡迎光臨，請問要點什麼？',
       openingPronunciation: 'eoseo oseyo. jumunhasigess-eoyo?',
-      suggestedReply: '아메리카노 한 잔 주세요.',
-      suggestedReplyMeaningZh: '請給我一杯美式咖啡。',
+      hints: [
+        { text: '아메리카노 한 잔 주세요.', meaningZh: '請給我一杯美式咖啡。' },
+        { text: '따뜻한 걸로 주세요.', meaningZh: '請給我熱的。' },
+        { text: '추천해 주세요.', meaningZh: '請推薦一下。' },
+      ],
+      followUpReplies: [
+        {
+          reply: '네, 아메리카노 한 잔이요. 다른 거 필요하세요?',
+          replyMeaningZh: '好的，一杯美式。還需要別的嗎？',
+          replyPronunciation: 'ne, amerikano han janiyo. dareun geo pilyohaseyo?',
+        },
+        {
+          reply: '잠시만 기다려 주세요.',
+          replyMeaningZh: '請稍等一下。',
+          replyPronunciation: 'jamsiman gidaryeo juseyo',
+        },
+      ],
     },
     {
       scenarioTitle: '지하철 안내',
-      scenarioDescriptionZh: '你向站務人員詢問路線。',
+      roleLabelZh: '站務人員',
+      goalZh: '問清楚要怎麼換車',
       openingLine: '어디 가시는데요?',
       openingMeaningZh: '請問要去哪裡？',
       openingPronunciation: 'eodi gasineundeyo?',
-      suggestedReply: '명동역에 가고 싶어요.',
-      suggestedReplyMeaningZh: '我想去明洞站。',
+      hints: [
+        { text: '명동역에 가고 싶어요.', meaningZh: '我想去明洞站。' },
+        { text: '환승해야 하나요?', meaningZh: '需要換車嗎？' },
+        { text: '몇 정거장 가야 해요?', meaningZh: '要坐幾站？' },
+      ],
+      followUpReplies: [
+        {
+          reply: '명동역이면 2호선을 타세요.',
+          replyMeaningZh: '去明洞的話，請搭 2 號線。',
+          replyPronunciation: 'myeongdong-yeog-imyeon 2-hoseon-eul taseyo',
+        },
+        {
+          reply: '다음 역에서 갈아타시면 됩니다.',
+          replyMeaningZh: '下一站換車就可以了。',
+          replyPronunciation: 'da-eum yeog-eseo garatasimyeon doemnida',
+        },
+      ],
     },
     {
       scenarioTitle: '편의점 계산',
-      scenarioDescriptionZh: '你在韓國便利商店結帳。',
+      roleLabelZh: '店員',
+      goalZh: '完成結帳',
       openingLine: '봉투 필요하세요?',
       openingMeaningZh: '需要袋子嗎？',
       openingPronunciation: 'bongtu pilyohaseyo?',
-      suggestedReply: '아니요, 괜찮아요.',
-      suggestedReplyMeaningZh: '不用，沒關係。',
+      hints: [
+        { text: '아니요, 괜찮아요.', meaningZh: '不用，沒關係。' },
+        { text: '카드로 할게요.', meaningZh: '我用卡片。' },
+        { text: '영수증 주세요.', meaningZh: '請給我收據。' },
+      ],
+      followUpReplies: [
+        {
+          reply: '네, 총 오천 원입니다.',
+          replyMeaningZh: '好的，總共五千元。',
+          replyPronunciation: 'ne, chong ocheon won-imnida',
+        },
+        {
+          reply: '감사합니다. 또 오세요!',
+          replyMeaningZh: '謝謝，歡迎再來！',
+          replyPronunciation: 'gamsahamnida. tto oseyo',
+        },
+      ],
     },
   ],
 }
@@ -139,62 +267,46 @@ const CUSTOM_OPENINGS: Record<
   },
 }
 
-const CONVERSATION_REPLIES: Record<
+const GENERIC_FOLLOW_UPS: Record<
   Language,
   { reply: string; replyMeaningZh: string; replyPronunciation?: string }[]
 > = {
   ja: [
     {
-      reply: 'かしこまりました。こちらがおすすめです。',
-      replyMeaningZh: '好的，這款是我們推薦的。',
-      replyPronunciation: 'kashikomarimashita. kochira ga osusume desu',
+      reply: 'かしこまりました。他にご質問はありますか？',
+      replyMeaningZh: '好的，還有其他問題嗎？',
+      replyPronunciation: 'kashikomarimashita. hoka ni goshitsumon wa arimasu ka',
     },
     {
       reply: '少々お待ちください。',
       replyMeaningZh: '請稍等一下。',
       replyPronunciation: 'shoushou omachi kudasai',
     },
-    {
-      reply: '他にご質問はありますか？',
-      replyMeaningZh: '還有其他問題嗎？',
-      replyPronunciation: 'hoka ni goshitsumon wa arimasu ka',
-    },
   ],
   en: [
-    {
-      reply: 'Sure, let me show you.',
-      replyMeaningZh: '好的，我帶你看。',
-    },
-    {
-      reply: 'No problem. Anything else?',
-      replyMeaningZh: '沒問題，還需要別的嗎？',
-    },
-    {
-      reply: 'That sounds good. Here you go.',
-      replyMeaningZh: '聽起來不錯，給你。',
-    },
+    { reply: 'Sure, no problem. Anything else?', replyMeaningZh: '好的，沒問題。還需要別的嗎？' },
+    { reply: 'Got it. Here you go.', replyMeaningZh: '了解，給你。' },
   ],
   ko: [
     {
-      reply: '네, 이쪽으로 오세요.',
-      replyMeaningZh: '好的，請往這邊。',
-      replyPronunciation: 'ne, ijjog-euro oseyo',
+      reply: '네, 알겠습니다. 다른 거 필요하세요?',
+      replyMeaningZh: '好的，還需要別的嗎？',
+      replyPronunciation: 'ne, algesseumnida. dareun geo pilyohaseyo?',
     },
     {
       reply: '잠시만 기다려 주세요.',
       replyMeaningZh: '請稍等一下。',
       replyPronunciation: 'jamsiman gidaryeo juseyo',
     },
-    {
-      reply: '다른 거 필요하세요?',
-      replyMeaningZh: '還需要別的嗎？',
-      replyPronunciation: 'dareun geo pilyohaseyo?',
-    },
   ],
 }
 
 function pickRandom<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)]
+}
+
+function findTopicSession(language: Language, scenarioTitle: string): TopicChatSession | undefined {
+  return TOPIC_POOL[language].find((t) => t.scenarioTitle === scenarioTitle)
 }
 
 function mockCorrectSentence(language: Language, sentence: string): SentenceCorrectionResult {
@@ -271,13 +383,18 @@ export async function startCustomScenario(
   }
 }
 
-export async function suggestTopic(request: TopicSuggestionRequest): Promise<TopicSuggestionResult> {
+export async function startTopicChat(request: TopicSuggestionRequest): Promise<TopicChatSession> {
   if (!USE_MOCK) {
-    return fetchFromApi<TopicSuggestionResult>('/coach/suggest-topic', request)
+    return fetchFromApi<TopicChatSession>('/coach/start-topic-chat', request)
   }
 
   await delay(500)
   return pickRandom(TOPIC_POOL[request.language])
+}
+
+/** @deprecated Use startTopicChat */
+export async function suggestTopic(request: TopicSuggestionRequest): Promise<TopicChatSession> {
+  return startTopicChat(request)
 }
 
 export async function correctSentence(
@@ -291,6 +408,20 @@ export async function correctSentence(
   return mockCorrectSentence(request.language, request.sentence)
 }
 
+export async function continueTopicConversation(
+  request: TopicConversationRequest,
+): Promise<ConversationReplyResult> {
+  if (!USE_MOCK) {
+    return fetchFromApi<ConversationReplyResult>('/coach/topic-reply', request)
+  }
+
+  await delay(500)
+  const topic = findTopicSession(request.language, request.scenarioTitle)
+  const replies = topic?.followUpReplies ?? GENERIC_FOLLOW_UPS[request.language]
+  const index = Math.min(request.userTurnIndex - 1, replies.length - 1)
+  return replies[Math.max(0, index)]
+}
+
 export async function continueConversation(
   request: ConversationReplyRequest,
 ): Promise<ConversationReplyResult> {
@@ -299,9 +430,27 @@ export async function continueConversation(
   }
 
   await delay(500)
+  const topic = findTopicSession(request.language, request.scenario)
+  if (topic) {
+    const userTurnIndex = request.history.filter((m) => m.role === 'user').length
+    return continueTopicConversation({
+      language: request.language,
+      scenarioTitle: request.scenario,
+      userTurnIndex,
+    })
+  }
+
   const turnIndex = request.history.filter((m) => m.role === 'user').length
-  const replies = CONVERSATION_REPLIES[request.language]
-  return replies[Math.min(turnIndex, replies.length - 1)]
+  const replies = GENERIC_FOLLOW_UPS[request.language]
+  return replies[Math.min(turnIndex - 1, replies.length - 1)] ?? replies[0]
+}
+
+export function getTopicHint(
+  session: TopicChatSession,
+  assistantMessageIndex: number,
+): { text: string; meaningZh: string; pronunciation?: string } | undefined {
+  const hintIndex = Math.floor(assistantMessageIndex / 2)
+  return session.hints[hintIndex]
 }
 
 export function isCoachMockMode(): boolean {

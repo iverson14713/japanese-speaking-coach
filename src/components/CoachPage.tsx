@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Language } from '../data/types'
-import { LANGUAGE_LABELS } from '../data/types'
 import {
   COACH_LIMITS,
   type ChatMessage,
+  type ChatSessionInfo,
   type CoachPlan,
   type CustomScenarioResult,
   type SentenceCorrectionResult,
-  type TopicSuggestionResult,
+  type TopicChatSession,
   continueConversation,
   correctSentence,
   isCoachMockMode,
   startCustomScenario,
-  suggestTopic,
+  startTopicChat,
 } from '../services/ai'
 import {
   canStartCoachSession,
@@ -20,6 +20,12 @@ import {
   getMaxTurnsForPlan,
   getRemainingCoachSessions,
 } from '../utils/coachUsageStorage'
+import {
+  disableAiCoachDebugMode,
+  isAiCoachDebugMode,
+  syncAiCoachDebugFromUrl,
+} from '../utils/aiCoachDebugMode'
+import { CoachChatView } from './CoachChatView'
 import { LanguageSelector } from './LanguageSelector'
 import { SpeakButton } from './SpeakButton'
 
@@ -31,6 +37,7 @@ interface CoachPageProps {
 const DEFAULT_PLAN: CoachPlan = 'free'
 
 type ActivePanel = 'custom' | 'topic' | 'correction' | null
+type ChatMode = 'custom' | 'topic' | null
 
 export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   const [plan] = useState<CoachPlan>(DEFAULT_PLAN)
@@ -38,41 +45,62 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     getRemainingCoachSessions(DEFAULT_PLAN, language),
   )
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
+  const [chatMode, setChatMode] = useState<ChatMode>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [customInput, setCustomInput] = useState('')
   const [customScenario, setCustomScenario] = useState<CustomScenarioResult | null>(null)
+  const [topicSession, setTopicSession] = useState<TopicChatSession | null>(null)
+  const [sessionInfo, setSessionInfo] = useState<ChatSessionInfo | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [replyInput, setReplyInput] = useState('')
   const [userTurns, setUserTurns] = useState(0)
 
-  const [topicResult, setTopicResult] = useState<TopicSuggestionResult | null>(null)
   const [correctionInput, setCorrectionInput] = useState('')
   const [correctionResult, setCorrectionResult] = useState<SentenceCorrectionResult | null>(null)
+  const [debugMode, setDebugMode] = useState(() => isAiCoachDebugMode())
 
   const maxTurns = getMaxTurnsForPlan(plan)
   const dailyLimit = COACH_LIMITS[plan].dailySessions
-  const turnsRemaining = Math.max(0, maxTurns - userTurns)
-  const chatEnded = userTurns >= maxTurns
 
   const refreshUsage = useCallback(() => {
     setRemainingSessions(getRemainingCoachSessions(plan, language))
   }, [plan, language])
 
   useEffect(() => {
+    setDebugMode(syncAiCoachDebugFromUrl())
     refreshUsage()
     resetSessionState()
   }, [language, refreshUsage])
 
-  function resetSessionState() {
-    setActivePanel(null)
-    setError(null)
+  function handleDisableDebugMode() {
+    disableAiCoachDebugMode()
+    setDebugMode(false)
+    refreshUsage()
+  }
+
+  function resetChatOnly() {
+    setChatMode(null)
     setCustomScenario(null)
+    setTopicSession(null)
+    setSessionInfo(null)
     setChatMessages([])
     setReplyInput('')
     setUserTurns(0)
-    setTopicResult(null)
+    setActivePanel(null)
+  }
+
+  function resetSessionState() {
+    setActivePanel(null)
+    setChatMode(null)
+    setError(null)
+    setCustomScenario(null)
+    setTopicSession(null)
+    setSessionInfo(null)
+    setChatMessages([])
+    setReplyInput('')
+    setUserTurns(0)
     setCorrectionResult(null)
   }
 
@@ -82,6 +110,13 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
       return false
     }
     return true
+  }
+
+  function getScenarioKey(): string {
+    if (chatMode === 'topic' && topicSession) {
+      return topicSession.scenarioTitle
+    }
+    return customInput.trim()
   }
 
   async function handleStartCustom() {
@@ -97,7 +132,8 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     setLoading(true)
     setError(null)
     setActivePanel('custom')
-    setTopicResult(null)
+    setChatMode('custom')
+    setTopicSession(null)
     setCorrectionResult(null)
 
     try {
@@ -106,6 +142,11 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
       refreshUsage()
 
       setCustomScenario(result)
+      setSessionInfo({
+        scenarioTitle: result.scenarioTitle,
+        roleLabelZh: result.roleDescriptionZh.match(/扮演(.+?)，/)?.[1] ?? '當地人',
+        goalZh: scenario,
+      })
       setChatMessages([
         {
           role: 'assistant',
@@ -115,8 +156,10 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         },
       ])
       setUserTurns(0)
+      setReplyInput('')
     } catch {
       setError('無法開始練習，請稍後再試')
+      setChatMode(null)
     } finally {
       setLoading(false)
     }
@@ -124,7 +167,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
 
   async function handleSendReply() {
     const message = replyInput.trim()
-    if (!message || !customScenario || chatEnded || loading) {
+    if (!message || !sessionInfo || userTurns >= maxTurns || loading) {
       return
     }
 
@@ -132,10 +175,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     setError(null)
 
     const nextUserTurn = userTurns + 1
-    const history: ChatMessage[] = [
-      ...chatMessages,
-      { role: 'user', text: message },
-    ]
+    const history: ChatMessage[] = [...chatMessages, { role: 'user', text: message }]
 
     setChatMessages(history)
     setReplyInput('')
@@ -144,7 +184,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     try {
       const reply = await continueConversation({
         language,
-        scenario: customInput.trim(),
+        scenario: getScenarioKey(),
         history,
         userMessage: message,
       })
@@ -167,7 +207,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     }
   }
 
-  async function handleSuggestTopic() {
+  async function handleStartTopic() {
     if (!requireSession()) {
       return
     }
@@ -175,20 +215,52 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     setLoading(true)
     setError(null)
     setActivePanel('topic')
+    setChatMode('topic')
     setCustomScenario(null)
-    setChatMessages([])
     setCorrectionResult(null)
 
     try {
-      const result = await suggestTopic({ language })
+      const result = await startTopicChat({ language })
       consumeCoachSession(language)
       refreshUsage()
-      setTopicResult(result)
+
+      setTopicSession(result)
+      setSessionInfo({
+        scenarioTitle: result.scenarioTitle,
+        roleLabelZh: result.roleLabelZh,
+        goalZh: result.goalZh,
+      })
+      setChatMessages([
+        {
+          role: 'assistant',
+          text: result.openingLine,
+          meaningZh: result.openingMeaningZh,
+          pronunciation: result.openingPronunciation,
+        },
+      ])
+      setUserTurns(0)
+      setReplyInput('')
     } catch {
       setError('無法產生話題，請稍後再試')
+      setChatMode(null)
     } finally {
       setLoading(false)
     }
+  }
+
+  async function handleRequestNaturalCorrection(assistantMessageIndex: number): Promise<SentenceCorrectionResult | null> {
+    for (let i = assistantMessageIndex - 1; i >= 0; i--) {
+      const message = chatMessages[i]
+      if (message.role === 'user') {
+        try {
+          return await correctSentence({ language, sentence: message.text })
+        } catch {
+          setError('無法分析句子，請稍後再試')
+          return null
+        }
+      }
+    }
+    return null
   }
 
   async function handleCorrectSentence() {
@@ -204,9 +276,9 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     setLoading(true)
     setError(null)
     setActivePanel('correction')
-    setCustomScenario(null)
+    setChatMode(null)
+    setSessionInfo(null)
     setChatMessages([])
-    setTopicResult(null)
 
     try {
       const result = await correctSentence({ language, sentence })
@@ -220,6 +292,8 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     }
   }
 
+  const showChat = sessionInfo && chatMode && (chatMode === 'topic' || customScenario)
+
   return (
     <>
       <header className="coach-header">
@@ -229,14 +303,29 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
 
       <LanguageSelector selected={language} onSelect={onLanguageChange} />
 
+      {debugMode ? (
+        <div className="coach-debug-bar" role="status">
+          <span className="coach-debug-badge">測試模式</span>
+          <button type="button" className="coach-debug-off" onClick={handleDisableDebugMode}>
+            關閉測試模式
+          </button>
+        </div>
+      ) : null}
+
       <div className="coach-usage-bar" role="status">
-        <span className="coach-usage-text">
-          今日剩餘 {remainingSessions} / {dailyLimit} 次
-        </span>
-        <span className="coach-usage-hint">
-          {plan === 'free' ? 'Free' : 'Pro'} · 單次最多 {maxTurns} 回合
-        </span>
-        {isCoachMockMode() ? (
+        <p className="coach-usage-text">
+          {debugMode
+            ? '今日 AI 練習能量：不限次數'
+            : `今日 AI 練習能量：${remainingSessions} / ${dailyLimit}`}
+        </p>
+        <p className="coach-usage-hint">
+          {debugMode
+            ? `測試中 · 單次最多 ${maxTurns} 回合`
+            : plan === 'free'
+              ? `Free 每天可練 ${dailyLimit} 次，單次最多 ${maxTurns} 回合`
+              : `Pro 每天可練 ${dailyLimit} 次，單次最多 ${maxTurns} 回合`}
+        </p>
+        {import.meta.env.DEV && isCoachMockMode() ? (
           <span className="coach-usage-badge">示範模式</span>
         ) : null}
       </div>
@@ -259,77 +348,42 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
             onChange={(e) => setCustomInput(e.target.value)}
             placeholder="例如：我想練在日本藥妝店買眼藥水"
             rows={3}
-            disabled={loading}
+            disabled={loading || (!debugMode && chatMode === 'custom' && !!customScenario)}
           />
-          <button
-            type="button"
-            className="coach-action-button"
-            onClick={handleStartCustom}
-            disabled={loading}
-          >
-            {loading && activePanel === 'custom' ? '準備中…' : '開始練習'}
-          </button>
+          {(!showChat || chatMode !== 'custom' || debugMode) ? (
+            <button
+              type="button"
+              className="coach-action-button"
+              onClick={() => {
+                if (debugMode && chatMode === 'custom' && customScenario) {
+                  resetChatOnly()
+                }
+                void handleStartCustom()
+              }}
+              disabled={loading}
+            >
+              {loading && activePanel === 'custom'
+                ? '準備中…'
+                : debugMode && chatMode === 'custom' && customScenario
+                  ? '重新開始'
+                  : '開始練習'}
+            </button>
+          ) : null}
 
-          {activePanel === 'custom' && customScenario ? (
+          {chatMode === 'custom' && sessionInfo && customScenario ? (
             <div className="coach-result">
-              <p className="coach-result-label">情境：{customScenario.scenarioTitle}</p>
-              <p className="coach-result-hint">{customScenario.roleDescriptionZh}</p>
-
-              <ul className="coach-chat" aria-label="對話紀錄">
-                {chatMessages.map((msg, index) => (
-                  <li
-                    key={`${msg.role}-${index}`}
-                    className={`coach-chat-bubble coach-chat-bubble--${msg.role}`}
-                  >
-                    <p className="coach-chat-role">
-                      {msg.role === 'assistant' ? 'AI 對方' : '你'}
-                    </p>
-                    <div className="coach-chat-text-row">
-                      <p className="coach-chat-text">{msg.text}</p>
-                      {msg.role === 'assistant' ? (
-                        <SpeakButton
-                          text={msg.text}
-                          language={language}
-                          label={`播放 ${msg.text}`}
-                          size="small"
-                        />
-                      ) : null}
-                    </div>
-                    {msg.pronunciation ? (
-                      <p className="coach-chat-pronunciation">{msg.pronunciation}</p>
-                    ) : null}
-                    {msg.meaningZh ? (
-                      <p className="coach-chat-meaning">{msg.meaningZh}</p>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-
-              {!chatEnded ? (
-                <div className="coach-reply-box">
-                  <textarea
-                    className="coach-textarea coach-textarea--compact"
-                    value={replyInput}
-                    onChange={(e) => setReplyInput(e.target.value)}
-                    placeholder={`用${LANGUAGE_LABELS[language]}回覆…`}
-                    rows={2}
-                    disabled={loading}
-                  />
-                  <div className="coach-reply-meta">
-                    <span className="coach-turn-count">剩餘 {turnsRemaining} 回合</span>
-                    <button
-                      type="button"
-                      className="coach-action-button coach-action-button--secondary"
-                      onClick={handleSendReply}
-                      disabled={loading || !replyInput.trim()}
-                    >
-                      {loading ? '送出中…' : '送出回覆'}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <p className="coach-session-end">本次對話已結束，明天再來練吧！</p>
-              )}
+              <CoachChatView
+                language={language}
+                session={sessionInfo}
+                messages={chatMessages}
+                userTurns={userTurns}
+                maxTurns={maxTurns}
+                replyInput={replyInput}
+                loading={loading}
+                onReplyInputChange={setReplyInput}
+                onSendReply={handleSendReply}
+                onRequestNaturalCorrection={handleRequestNaturalCorrection}
+              />
             </div>
           ) : null}
         </section>
@@ -339,40 +393,41 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
           <p className="coach-card-desc">
             不知道要練什麼？讓 AI 幫你產生一個旅行聊天情境。
           </p>
-          <button
-            type="button"
-            className="coach-action-button"
-            onClick={handleSuggestTopic}
-            disabled={loading}
-          >
-            {loading && activePanel === 'topic' ? '產生中…' : '幫我開一題'}
-          </button>
+          {(!showChat || chatMode !== 'topic' || debugMode) ? (
+            <button
+              type="button"
+              className="coach-action-button"
+              onClick={() => {
+                if (debugMode && chatMode === 'topic' && topicSession) {
+                  resetChatOnly()
+                }
+                void handleStartTopic()
+              }}
+              disabled={loading}
+            >
+              {loading && activePanel === 'topic'
+                ? '產生中…'
+                : debugMode && chatMode === 'topic' && topicSession
+                  ? '重新開一題'
+                  : '幫我開一題'}
+            </button>
+          ) : null}
 
-          {activePanel === 'topic' && topicResult ? (
+          {chatMode === 'topic' && sessionInfo && topicSession ? (
             <div className="coach-result">
-              <p className="coach-result-label">{topicResult.scenarioTitle}</p>
-              <p className="coach-result-hint">{topicResult.scenarioDescriptionZh}</p>
-              <div className="coach-highlight-box">
-                <p className="coach-highlight-label">對方可能會說</p>
-                <div className="coach-chat-text-row">
-                  <p className="coach-highlight-text">{topicResult.openingLine}</p>
-                  <SpeakButton
-                    text={topicResult.openingLine}
-                    language={language}
-                    label={`播放 ${topicResult.openingLine}`}
-                    size="small"
-                  />
-                </div>
-                {topicResult.openingPronunciation ? (
-                  <p className="coach-chat-pronunciation">{topicResult.openingPronunciation}</p>
-                ) : null}
-                <p className="coach-chat-meaning">{topicResult.openingMeaningZh}</p>
-              </div>
-              <div className="coach-highlight-box coach-highlight-box--accent">
-                <p className="coach-highlight-label">你可以這樣回</p>
-                <p className="coach-highlight-text">{topicResult.suggestedReply}</p>
-                <p className="coach-chat-meaning">{topicResult.suggestedReplyMeaningZh}</p>
-              </div>
+              <CoachChatView
+                language={language}
+                session={sessionInfo}
+                messages={chatMessages}
+                userTurns={userTurns}
+                maxTurns={maxTurns}
+                replyInput={replyInput}
+                loading={loading}
+                hints={topicSession.hints}
+                onReplyInputChange={setReplyInput}
+                onSendReply={handleSendReply}
+                onRequestNaturalCorrection={handleRequestNaturalCorrection}
+              />
             </div>
           ) : null}
         </section>
@@ -396,7 +451,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
             onClick={handleCorrectSentence}
             disabled={loading}
           >
-            {loading && activePanel === 'correction' ? '分析中…' : '幫我改'}
+            {loading && activePanel === 'correction' ? '糾正中…' : '開始糾正'}
           </button>
 
           {activePanel === 'correction' && correctionResult ? (

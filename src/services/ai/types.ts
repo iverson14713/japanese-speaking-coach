@@ -19,6 +19,30 @@ export interface ChatMessage {
   pronunciation?: string
 }
 
+export interface ChatSessionInfo {
+  scenarioTitle: string
+  roleLabelZh: string
+  goalZh: string
+}
+
+export interface ChatHint {
+  text: string
+  meaningZh: string
+  pronunciation?: string
+}
+
+export interface TopicChatSession extends ChatSessionInfo {
+  openingLine: string
+  openingMeaningZh: string
+  openingPronunciation?: string
+  hints: ChatHint[]
+  followUpReplies: {
+    reply: string
+    replyMeaningZh: string
+    replyPronunciation?: string
+  }[]
+}
+
 export interface CustomScenarioResult {
   scenarioTitle: string
   roleDescriptionZh: string
@@ -27,12 +51,9 @@ export interface CustomScenarioResult {
   openingPronunciation?: string
 }
 
-export interface TopicSuggestionResult {
-  scenarioTitle: string
+/** @deprecated Use TopicChatSession for chat mode */
+export interface TopicSuggestionResult extends TopicChatSession {
   scenarioDescriptionZh: string
-  openingLine: string
-  openingMeaningZh: string
-  openingPronunciation?: string
   suggestedReply: string
   suggestedReplyMeaningZh: string
 }
@@ -69,4 +90,16 @@ export interface ConversationReplyRequest {
 
 export interface TopicSuggestionRequest {
   language: Language
+}
+
+export interface TopicConversationRequest {
+  language: Language
+  scenarioTitle: string
+  userTurnIndex: number
+}
+
+export const REPLY_PLACEHOLDERS: Record<Language, string> = {
+  ja: '日文で返してみよう...',
+  en: 'Try replying in English...',
+  ko: '한국어로 답해보세요...',
 }
