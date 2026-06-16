@@ -32,6 +32,13 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Prevent iOS Safari/PWA auto-zoom on focus */
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
 body {
   font-family: var(--font-sans);
   background: var(--color-bg);
@@ -1829,8 +1836,8 @@ body {
   padding: 12px 14px;
   margin-bottom: 10px;
   font-family: inherit;
-  font-size: 0.84rem;
-  line-height: 1.55;
+  font-size: 16px;
+  line-height: 1.4;
   color: var(--color-text);
   background: var(--color-bg);
   border: 1.5px solid var(--color-border);
@@ -2052,7 +2059,8 @@ body {
   min-width: 0;
   padding: 11px 14px;
   font-family: inherit;
-  font-size: 0.84rem;
+  font-size: 16px;
+  line-height: 1.4;
   color: var(--color-text);
   background: var(--color-bg-card);
   border: 1.5px solid var(--color-border);
