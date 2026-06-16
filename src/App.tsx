@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Language } from './data/types'
 import { syncAiCoachDebugFromUrl } from './utils/aiCoachDebugMode'
+import { loadLanguagePreference, saveLanguagePreference } from './utils/languagePreferenceStorage'
 import type { DialogueCategoryId } from './data/dialogues'
 import { BottomTabBar, type AppTab } from './components/BottomTabBar'
 import { TodayPage } from './components/TodayPage'
@@ -11,11 +12,12 @@ import { CoachPage } from './components/CoachPage'
 
 function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('today')
-  const [language, setLanguage] = useState<Language>('ja')
+  const [language, setLanguage] = useState<Language>(() => loadLanguagePreference())
   const [dialogueCategory, setDialogueCategory] = useState<DialogueCategoryId | null>(null)
 
   const handleLanguageChange = useCallback((nextLanguage: Language) => {
     setLanguage(nextLanguage)
+    saveLanguagePreference(nextLanguage)
     setDialogueCategory(null)
   }, [])
 

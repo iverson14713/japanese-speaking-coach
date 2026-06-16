@@ -54,8 +54,8 @@ type CoachPhase = 'welcome' | 'active' | 'ended'
 type ChatMode = 'custom' | 'topic' | null
 type VoiceInputMode = 'zh-coach' | 'practice-language'
 
-function createWelcomeMessages(mode: CoachPracticeMode): ChatMessage[] {
-  const text = mode === 'free-chat' ? COACH_FREE_CHAT_WELCOME : COACH_SCENARIO_WELCOME
+function createWelcomeMessages(mode: CoachPracticeMode, lang: Language): ChatMessage[] {
+  const text = mode === 'free-chat' ? COACH_FREE_CHAT_WELCOME[lang] : COACH_SCENARIO_WELCOME
   return [{ role: 'assistant', text, variant: 'welcome' }]
 }
 
@@ -85,7 +85,9 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   const [scenarioKey, setScenarioKey] = useState('')
   const [topicSession, setTopicSession] = useState<TopicChatSession | null>(null)
   const [sessionInfo, setSessionInfo] = useState<ChatSessionInfo | null>(null)
-  const [messages, setMessages] = useState<ChatMessage[]>(() => createWelcomeMessages('free-chat'))
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    createWelcomeMessages('free-chat', language),
+  )
   const [input, setInput] = useState('')
   const [userTurns, setUserTurns] = useState(0)
   const [customHints, setCustomHints] = useState<TopicChatSession['hints']>([])
@@ -196,7 +198,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     setError(null)
     setTopicSession(null)
     setSessionInfo(null)
-    setMessages(createWelcomeMessages('free-chat'))
+    setMessages(createWelcomeMessages('free-chat', language))
     setInput('')
     setUserTurns(0)
     setScenarioKey('')
@@ -217,7 +219,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     setError(null)
     setTopicSession(null)
     setSessionInfo(null)
-    setMessages(createWelcomeMessages(mode))
+    setMessages(createWelcomeMessages(mode, language))
     setInput('')
     setUserTurns(0)
     setScenarioKey('')
@@ -307,7 +309,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
       ])
     } catch {
       setError(formatAiConnectionError(debugMode))
-      setMessages(createWelcomeMessages('scenario-practice'))
+      setMessages(createWelcomeMessages('scenario-practice', language))
       setPhase('welcome')
     } finally {
       setLoading(false)
@@ -360,7 +362,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
       ])
     } catch {
       setError(formatAiConnectionError(debugMode))
-      setMessages(createWelcomeMessages('scenario-practice'))
+      setMessages(createWelcomeMessages('scenario-practice', language))
       setPhase('welcome')
     } finally {
       setLoading(false)

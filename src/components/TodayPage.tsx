@@ -108,7 +108,7 @@ export function TodayPage({ language, onLanguageChange }: TodayPageProps) {
     <>
       <header className="today-header">
         <h1 className="today-title">今日練習</h1>
-        <p className="today-subtitle">每天一句，出國前慢慢累積</p>
+        <p className="today-subtitle">出國前，每天練一句</p>
       </header>
 
       <LanguageSelector selected={language} onSelect={handleLanguageChange} />

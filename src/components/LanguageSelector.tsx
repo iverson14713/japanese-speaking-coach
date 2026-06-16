@@ -8,8 +8,8 @@ interface LanguageSelectorProps {
 }
 
 const LANGUAGE_OPTIONS: { value: Language; label: string; flag: string }[] = [
-  { value: 'ja', label: '日文', flag: '🇯🇵' },
   { value: 'en', label: '英文', flag: '🇺🇸' },
+  { value: 'ja', label: '日文', flag: '🇯🇵' },
   { value: 'ko', label: '韓文', flag: '🇰🇷' },
 ]
 

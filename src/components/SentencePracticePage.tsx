@@ -139,7 +139,7 @@ export function SentencePracticePage({
   return (
     <>
       <header className="app-header">
-        <p className="app-subtitle">出國前，先練會真的用得到的句子</p>
+        <p className="app-subtitle">英文、日文、韓文旅行口說都能練</p>
         <h1 className="app-title">旅行口說教練</h1>
       </header>
 

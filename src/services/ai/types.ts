@@ -163,8 +163,14 @@ export interface TopicConversationRequest {
 
 export const COACH_CHAT_INPUT_PLACEHOLDER = '用中文描述想說的話，或用學習語言回覆教練...'
 
-export const COACH_FREE_CHAT_WELCOME =
-  '嗨！我是你的語言教練。\n隨時用中文或學習語言跟我聊天練口說吧！'
+export const COACH_FREE_CHAT_WELCOME: Record<Language, string> = {
+  en: 'Hi! What would you like to practice today?\n你也可以用中文告訴我想練什麼。',
+  ja: 'こんにちは！今日は何を練習しましょうか？\n你也可以用中文告訴我想練什麼。',
+  ko: '안녕하세요! 오늘은 무엇을 연습해 볼까요?\n你也可以用中文告訴我想練什麼。',
+}
+
+/** @deprecated Use COACH_FREE_CHAT_WELCOME[language] */
+export const COACH_FREE_CHAT_WELCOME_TEXT = COACH_FREE_CHAT_WELCOME.en
 
 export const COACH_SCENARIO_WELCOME =
   '今天想練什麼情境呢？\n你可以自己輸入旅行情境，\n也可以讓我幫你開一個話題。'
