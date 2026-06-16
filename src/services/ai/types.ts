@@ -1,5 +1,13 @@
 import type { Language } from '../../data/types'
 
+export type CoachAiSource = 'openai' | 'mock' | 'fallback'
+
+export const COACH_AI_SOURCE_LABELS: Record<CoachAiSource, string> = {
+  openai: 'OpenAI',
+  mock: 'Mock',
+  fallback: 'Fallback',
+}
+
 export type CoachPlan = 'free' | 'pro'
 
 export interface CoachLimits {

@@ -2,16 +2,19 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 're
 import type { Language } from '../data/types'
 import { SPEECH_LANG } from '../data/types'
 import {
+  COACH_AI_SOURCE_LABELS,
   COACH_CHAT_INPUT_PLACEHOLDER,
   COACH_LIMITS,
   COACH_WELCOME_TEXT,
   type ChatMessage,
   type ChatSessionInfo,
+  type CoachAiSource,
   type CoachPlan,
   type SentenceCorrectionResult,
   type TopicChatSession,
   continueConversation,
   correctSentence,
+  getCoachAiSource,
   isCoachMockMode,
   startCustomScenario,
   startTopicChat,
@@ -71,6 +74,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   const [awaitingCustomInput, setAwaitingCustomInput] = useState(false)
 
   const [debugMode, setDebugMode] = useState(() => isAiCoachDebugMode())
+  const [aiSource, setAiSource] = useState<CoachAiSource>(() => getCoachAiSource())
   const titleTapRef = useRef({ count: 0, lastTapAt: 0 })
   const inputRef = useRef<HTMLInputElement>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
@@ -113,11 +117,16 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     setRemainingSessions(getRemainingCoachSessions(plan, language))
   }, [plan, language])
 
+  const refreshAiSource = useCallback(() => {
+    setAiSource(getCoachAiSource())
+  }, [])
+
   useEffect(() => {
     syncAiCoachDebugFromUrl()
     syncDebugState()
     refreshUsage()
-  }, [syncDebugState, refreshUsage])
+    refreshAiSource()
+  }, [syncDebugState, refreshUsage, refreshAiSource])
 
   useEffect(() => {
     const handleVisibility = () => {
@@ -239,11 +248,12 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         },
       ])
     } catch {
-      setError('無法開始練習，請稍後再試')
+      setError('AI 連線失敗，請稍後再試')
       setMessages(createWelcomeMessages())
       setPhase('welcome')
     } finally {
       setLoading(false)
+      refreshAiSource()
     }
   }
 
@@ -290,11 +300,12 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         },
       ])
     } catch {
-      setError('無法產生話題，請稍後再試')
+      setError('AI 連線失敗，請稍後再試')
       setMessages(createWelcomeMessages())
       setPhase('welcome')
     } finally {
       setLoading(false)
+      refreshAiSource()
     }
   }
 
@@ -316,6 +327,9 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
 
     setLoading(true)
     setError(null)
+
+    const previousMessages = messages
+    const previousUserTurns = userTurns
 
     const nextUserTurn = userTurns + 1
     const history: ChatMessage[] = [...messages, { role: 'user', text }]
@@ -354,9 +368,13 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         setPhase('ended')
       }
     } catch {
-      setError('回覆失敗，請稍後再試')
+      setError('AI 連線失敗，請稍後再試')
+      setMessages(previousMessages)
+      setUserTurns(previousUserTurns)
+      setInput(text)
     } finally {
       setLoading(false)
+      refreshAiSource()
     }
   }
 
@@ -380,7 +398,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         history: messages,
       })
     } catch {
-      setError('無法分析句子，請稍後再試')
+      setError('AI 連線失敗，請稍後再試')
       return null
     }
   }
@@ -450,6 +468,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
       {debugMode ? (
         <div className="coach-debug-bar" role="status">
           <span className="coach-debug-badge">測試模式</span>
+          <span className="coach-debug-source">AI Source: {COACH_AI_SOURCE_LABELS[aiSource]}</span>
           <button type="button" className="coach-debug-off" onClick={handleDisableDebugMode}>
             關閉
           </button>
@@ -463,7 +482,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
             : `今日 AI 練習能量：${remainingSessions} / ${dailyLimit}`}
         </p>
         {import.meta.env.DEV && isCoachMockMode() ? (
-          <span className="coach-usage-badge">示範模式</span>
+          <span className="coach-usage-badge">Mock 模式</span>
         ) : null}
       </div>
 

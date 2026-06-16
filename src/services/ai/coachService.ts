@@ -2,6 +2,7 @@ import type { Language } from '../../data/types'
 import type {
   ChatHint,
   ChatMessage,
+  CoachAiSource,
   ConversationReplyRequest,
   ConversationReplyResult,
   CustomScenarioRequest,
@@ -13,8 +14,22 @@ import type {
   TopicSuggestionRequest,
 } from './types'
 
-const API_BASE = import.meta.env.VITE_AI_API_BASE ?? (import.meta.env.PROD ? '/coach' : '')
-const USE_MOCK = !API_BASE
+const API_BASE = import.meta.env.VITE_AI_API_BASE ?? '/coach'
+const FORCE_MOCK = import.meta.env.VITE_AI_COACH_USE_MOCK === 'true'
+const FALLBACK_ON_ERROR = import.meta.env.VITE_AI_COACH_FALLBACK_ON_ERROR === 'true'
+
+let lastCoachAiSource: CoachAiSource = FORCE_MOCK ? 'mock' : 'openai'
+
+export function getCoachAiSource(): CoachAiSource {
+  return lastCoachAiSource
+}
+
+export class CoachApiError extends Error {
+  constructor(message = 'Coach API request failed') {
+    super(message)
+    this.name = 'CoachApiError'
+  }
+}
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -336,18 +351,14 @@ function findTopicSession(language: Language, scenarioTitle: string): TopicChatS
   return TOPIC_POOL[language].find((t) => t.scenarioTitle === scenarioTitle)
 }
 
-function isDistressOrChineseHelp(text: string): boolean {
+function isExplicitHelpRequest(text: string): boolean {
   const trimmed = text.trim()
   if (!trimmed) {
     return false
   }
-  if (/不會說|不会说|不知道|怎麼說|怎么说|教.*我|救命|不會講|不会讲|幫我說|帮我说/i.test(trimmed)) {
-    return true
-  }
-  const hasCjk = /[\u4e00-\u9fff]/.test(trimmed)
-  const hasTargetScript =
-    /[ぁ-んァ-ンー]/.test(trimmed) || /[a-zA-Z]/.test(trimmed) || /[가-힣]/.test(trimmed)
-  return hasCjk && !hasTargetScript
+  return /不會說|不会说|不知道怎麼|怎麼說|怎么说|怎麼講|怎么讲|教.*我說|教我讲|幫我說|帮我说|不會講|不会讲/i.test(
+    trimmed,
+  )
 }
 
 const COACHING_PHRASES: Record<
@@ -426,7 +437,7 @@ function mockCoachSpeakHelp(
   const trimmed = sentence.trim()
   const phrase = pickCoachingPhrase(language, turnIndex)
 
-  if (isDistressOrChineseHelp(trimmed)) {
+  if (isExplicitHelpRequest(trimmed)) {
     return {
       original: trimmed,
       corrected: phrase.foreign,
@@ -477,7 +488,7 @@ function mockConversationReply(
   userTurnIndex: number,
   topic?: TopicChatSession,
 ): ConversationReplyResult {
-  if (isDistressOrChineseHelp(userMessage)) {
+  if (isExplicitHelpRequest(userMessage)) {
     const phrase = pickCoachingPhrase(language, userTurnIndex)
     const hints = topic?.hints ?? CUSTOM_HINTS[language]
     return {
@@ -508,50 +519,81 @@ async function fetchFromApi<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   })
   if (!response.ok) {
-    throw new Error(`AI API error: ${response.status}`)
+    throw new CoachApiError(`AI API error: ${response.status}`)
   }
   return response.json() as Promise<T>
 }
 
-function slimHistory(history: ChatMessage[]): { role: 'user' | 'assistant'; text: string }[] {
+function historyForApi(history: ChatMessage[]): { role: 'user' | 'assistant'; text: string }[] {
   return history
     .filter((message) => message.variant !== 'welcome')
-    .map((message) => ({ role: message.role, text: message.text }))
+    .map((message) => {
+      if (message.role === 'assistant' && message.variant === 'dialogue') {
+        const parts: string[] = []
+        if (message.coachingZh) {
+          parts.push(message.coachingZh)
+        }
+        parts.push(message.text)
+        if (message.meaningZh) {
+          parts.push(`（${message.meaningZh}）`)
+        }
+        if (message.guidanceZh) {
+          parts.push(message.guidanceZh)
+        }
+        return { role: 'assistant' as const, text: parts.join('\n') }
+      }
+      return { role: message.role, text: message.text }
+    })
+}
+
+async function withCoachApi<T>(path: string, body: unknown, mockHandler: () => Promise<T>): Promise<T> {
+  if (FORCE_MOCK) {
+    lastCoachAiSource = 'mock'
+    return mockHandler()
+  }
+
+  try {
+    const result = await fetchFromApi<T>(path, body)
+    lastCoachAiSource = 'openai'
+    return result
+  } catch (error) {
+    if (FALLBACK_ON_ERROR) {
+      lastCoachAiSource = 'fallback'
+      return mockHandler()
+    }
+    throw error instanceof CoachApiError ? error : new CoachApiError()
+  }
 }
 
 export async function startCustomScenario(
   request: CustomScenarioRequest,
 ): Promise<CustomScenarioResult> {
-  if (!USE_MOCK) {
-    return fetchFromApi<CustomScenarioResult>('/custom-scenario', request)
-  }
+  return withCoachApi('/custom-scenario', request, async () => {
+    await delay(600)
 
-  await delay(600)
+    const opening = CUSTOM_OPENINGS[request.language]
+    const scenario = request.scenario.trim()
+    const title = scenario.slice(0, 24) || '自訂旅行情境'
+    const roleLabelZh = inferRoleFromScenario(scenario)
 
-  const opening = CUSTOM_OPENINGS[request.language]
-  const scenario = request.scenario.trim()
-  const title = scenario.slice(0, 24) || '自訂旅行情境'
-  const roleLabelZh = inferRoleFromScenario(scenario)
-
-  return {
-    scenarioTitle: title,
-    roleLabelZh,
-    goalZh: scenario,
-    introZh: `好，我會扮演${roleLabelZh}，陪你練習這個情境。`,
-    openingLine: opening.openingLine,
-    openingMeaningZh: opening.openingMeaningZh,
-    openingPronunciation: opening.openingPronunciation,
-    hints: CUSTOM_HINTS[request.language],
-  }
+    return {
+      scenarioTitle: title,
+      roleLabelZh,
+      goalZh: scenario,
+      introZh: `好，我會扮演${roleLabelZh}，陪你練習這個情境。`,
+      openingLine: opening.openingLine,
+      openingMeaningZh: opening.openingMeaningZh,
+      openingPronunciation: opening.openingPronunciation,
+      hints: CUSTOM_HINTS[request.language],
+    }
+  })
 }
 
 export async function startTopicChat(request: TopicSuggestionRequest): Promise<TopicChatSession> {
-  if (!USE_MOCK) {
-    return fetchFromApi<TopicChatSession>('/start-topic-chat', request)
-  }
-
-  await delay(500)
-  return pickRandom(TOPIC_POOL[request.language])
+  return withCoachApi('/start-topic-chat', request, async () => {
+    await delay(500)
+    return pickRandom(TOPIC_POOL[request.language])
+  })
 }
 
 /** @deprecated Use startTopicChat */
@@ -562,44 +604,46 @@ export async function suggestTopic(request: TopicSuggestionRequest): Promise<Top
 export async function correctSentence(
   request: SentenceCorrectionRequest,
 ): Promise<SentenceCorrectionResult> {
-  if (!USE_MOCK) {
-    return fetchFromApi<SentenceCorrectionResult>('/correct-sentence', {
+  return withCoachApi(
+    '/correct-sentence',
+    {
       ...request,
-      history: slimHistory(request.history),
-    })
-  }
-
-  await delay(450)
-  const turnIndex = request.history.filter((message) => message.role === 'user').length
-  return mockCoachSpeakHelp(request.language, request.sentence, turnIndex)
+      history: historyForApi(request.history),
+    },
+    async () => {
+      await delay(450)
+      const turnIndex = request.history.filter((message) => message.role === 'user').length
+      return mockCoachSpeakHelp(request.language, request.sentence, turnIndex)
+    },
+  )
 }
 
 export async function continueTopicConversation(
   request: TopicConversationRequest,
 ): Promise<ConversationReplyResult> {
-  if (!USE_MOCK) {
-    return fetchFromApi<ConversationReplyResult>('/topic-reply', request)
-  }
-
-  await delay(500)
-  const topic = findTopicSession(request.language, request.scenarioTitle)
-  return mockConversationReply(request.language, '', request.userTurnIndex, topic)
+  return withCoachApi('/conversation-reply', request, async () => {
+    await delay(500)
+    const topic = findTopicSession(request.language, request.scenarioTitle)
+    return mockConversationReply(request.language, '', request.userTurnIndex, topic)
+  })
 }
 
 export async function continueConversation(
   request: ConversationReplyRequest,
 ): Promise<ConversationReplyResult> {
-  if (!USE_MOCK) {
-    return fetchFromApi<ConversationReplyResult>('/conversation-reply', {
+  return withCoachApi(
+    '/conversation-reply',
+    {
       ...request,
-      history: slimHistory(request.history),
-    })
-  }
-
-  await delay(500)
-  const topic = findTopicSession(request.language, request.scenario)
-  const userTurnIndex = request.history.filter((message) => message.role === 'user').length
-  return mockConversationReply(request.language, request.userMessage, userTurnIndex, topic)
+      history: historyForApi(request.history),
+    },
+    async () => {
+      await delay(500)
+      const topic = findTopicSession(request.language, request.scenario)
+      const userTurnIndex = request.history.filter((message) => message.role === 'user').length
+      return mockConversationReply(request.language, request.userMessage, userTurnIndex, topic)
+    },
+  )
 }
 
 export function getTopicHint(
@@ -611,5 +655,5 @@ export function getTopicHint(
 }
 
 export function isCoachMockMode(): boolean {
-  return USE_MOCK
+  return FORCE_MOCK
 }
