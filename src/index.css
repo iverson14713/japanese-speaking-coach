@@ -1399,6 +1399,48 @@ body {
   border-radius: 999px;
 }
 
+.coach-voice-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: #fff8f4;
+  border: 1px solid #ecd0c6;
+  border-radius: var(--radius-md);
+}
+
+.coach-voice-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.coach-voice-card-title {
+  flex: 1;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-primary-dark);
+}
+
+.coach-voice-card-transcript {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--color-text);
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  word-break: break-word;
+}
+
+.coach-voice-card-hint {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
 .coach-voice-status-text {
   flex: 1;
 }
@@ -1478,6 +1520,17 @@ body {
   background: linear-gradient(180deg, #fceee8 0%, #f6ddd4 100%);
   border-color: #ecd0c6;
   box-shadow: 0 0 0 3px rgba(232, 145, 122, 0.15);
+  width: auto;
+  min-width: 42px;
+  padding: 0 10px;
+  border-radius: 999px;
+}
+
+.coach-chat-mic-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  white-space: nowrap;
 }
 
 .coach-chat-mic-icon {

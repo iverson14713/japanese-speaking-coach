@@ -35,6 +35,7 @@ import {
 } from '../utils/aiCoachDebugMode'
 import { CoachChatView } from './CoachChatView'
 import { LanguageSelector } from './LanguageSelector'
+import { useCoachAutoSpeak } from '../hooks/useCoachAutoSpeak'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { showToast } from '../utils/toast'
 
@@ -84,6 +85,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   const [customHints, setCustomHints] = useState<TopicChatSession['hints']>([])
   const [awaitingCustomInput, setAwaitingCustomInput] = useState(false)
   const [voiceInputMode, setVoiceInputMode] = useState<VoiceInputMode>('zh-coach')
+  const [autoSpeakEnabled] = useState(true)
 
   const [debugMode, setDebugMode] = useState(() => isAiCoachDebugMode())
   const [aiSource, setAiSource] = useState<CoachAiSource>(() => getCoachAiSource())
@@ -111,12 +113,19 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   const speechRecognitionLang =
     voiceInputMode === 'zh-coach' ? 'zh-TW' : SPEECH_LANG[language]
 
-  const { isSupported: isSpeechInputSupported, isListening, startListening, stopListening } =
+  const { isSupported: isSpeechInputSupported, isListening, interimTranscript, startListening, stopListening } =
     useSpeechRecognition({
       lang: speechRecognitionLang,
       onResult: handleSpeechResult,
       onError: handleSpeechError,
     })
+
+  const { isSpeaking, resetAutoSpeak, stopCoachSpeech } = useCoachAutoSpeak({
+    messages,
+    language,
+    enabled: autoSpeakEnabled,
+    loading,
+  })
 
   const maxTurns = getMaxTurnsForPlan(plan)
   const dailyLimit = COACH_LIMITS[plan].dailySessions
@@ -170,6 +179,8 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   }, [isListening, inputDisabled, stopListening])
 
   function resetToWelcome() {
+    stopCoachSpeech()
+    resetAutoSpeak()
     setPhase('welcome')
     setChatMode(null)
     setError(null)
@@ -447,13 +458,24 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   }
 
   function handleMicClick() {
-    if (inputDisabled || isListening) {
+    if (inputDisabled) {
       return
     }
+
+    if (isListening) {
+      stopListening()
+      return
+    }
+
     if (!isSpeechInputSupported) {
       showToast('目前裝置不支援語音輸入，請先使用打字回覆')
       return
     }
+
+    if (isSpeaking) {
+      stopCoachSpeech()
+    }
+
     startListening()
   }
 
@@ -485,6 +507,9 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         <div className="coach-debug-bar" role="status">
           <span className="coach-debug-badge">測試模式</span>
           <span className="coach-debug-source">AI Source: {COACH_AI_SOURCE_LABELS[aiSource]}</span>
+          <span className="coach-debug-source">
+            自動朗讀：{autoSpeakEnabled ? '開' : '關'}
+          </span>
           <button type="button" className="coach-debug-off" onClick={handleDisableDebugMode}>
             關閉
           </button>
@@ -527,14 +552,19 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
 
       <div className="coach-input-fixed">
         {isListening ? (
-          <div className="coach-voice-status" role="status" aria-live="polite">
-            <span className="pulse-dot" aria-hidden="true" />
-            <span className="coach-voice-status-text">
-              {voiceInputMode === 'zh-coach' ? '正在聽你說（中文）...' : `正在聽你說（${LANGUAGE_LABELS[language]}）...`}
-            </span>
-            <button type="button" className="coach-voice-stop" onClick={stopListening}>
-              停止
-            </button>
+          <div className="coach-voice-card" role="status" aria-live="polite">
+            <div className="coach-voice-card-header">
+              <span className="pulse-dot" aria-hidden="true" />
+              <span className="coach-voice-card-title">正在聽你說...</span>
+              <button type="button" className="coach-voice-stop" onClick={stopListening}>
+                停止
+              </button>
+            </div>
+            {interimTranscript ? (
+              <p className="coach-voice-card-transcript">{interimTranscript}</p>
+            ) : (
+              <p className="coach-voice-card-hint">還沒聽到內容，請靠近麥克風再說一次</p>
+            )}
           </div>
         ) : null}
 
@@ -574,18 +604,22 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
             className={`coach-chat-mic${isListening ? ' coach-chat-mic--active' : ''}`}
             onClick={handleMicClick}
             disabled={inputDisabled}
-            aria-label={isListening ? '正在語音輸入' : '語音輸入'}
+            aria-label={isListening ? '停止語音輸入' : '語音輸入'}
             aria-pressed={isListening}
           >
-            <span className="coach-chat-mic-icon" aria-hidden="true">
-              🎙
-            </span>
+            {isListening ? (
+              <span className="coach-chat-mic-label">停止</span>
+            ) : (
+              <span className="coach-chat-mic-icon" aria-hidden="true">
+                🎙
+              </span>
+            )}
           </button>
           <button
             type="button"
             className="coach-chat-send"
             onClick={() => void handleSend()}
-            disabled={inputDisabled || !input.trim()}
+            disabled={inputDisabled || isListening || !input.trim()}
           >
             {loading ? '…' : '送出'}
           </button>
