@@ -51,7 +51,8 @@ export function canStartCoachSession(plan: CoachPlan, language: Language): boole
   if (isAiCoachDebugMode()) {
     return true
   }
-  return getRemainingCoachSessions(plan, language) > 0
+  const limit = COACH_LIMITS[plan].dailySessions
+  return Math.max(0, limit - getCoachSessionsUsed(language)) > 0
 }
 
 export function consumeCoachSession(language: Language): void {

@@ -1,6 +1,8 @@
 const STORAGE_KEY = 'aiCoachDebugMode'
 
 export const AI_COACH_DEBUG_MAX_TURNS = 20
+export const TITLE_TAP_COUNT_REQUIRED = 5
+export const TITLE_TAP_WINDOW_MS = 2500
 
 export function isAiCoachDebugMode(): boolean {
   try {
@@ -11,11 +13,19 @@ export function isAiCoachDebugMode(): boolean {
 }
 
 export function enableAiCoachDebugMode(): void {
-  localStorage.setItem(STORAGE_KEY, 'true')
+  try {
+    localStorage.setItem(STORAGE_KEY, 'true')
+  } catch {
+    // Ignore quota / private mode errors
+  }
 }
 
 export function disableAiCoachDebugMode(): void {
-  localStorage.removeItem(STORAGE_KEY)
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // Ignore
+  }
 }
 
 /**
@@ -39,4 +49,24 @@ export function syncAiCoachDebugFromUrl(search: string = window.location.search)
   }
 
   return isAiCoachDebugMode()
+}
+
+interface TitleTapState {
+  count: number
+  lastTapAt: number
+}
+
+export function registerTitleTapForDebug(
+  state: TitleTapState,
+  now: number = Date.now(),
+): { nextState: TitleTapState; activated: boolean } {
+  const withinWindow = now - state.lastTapAt <= TITLE_TAP_WINDOW_MS
+  const count = withinWindow ? state.count + 1 : 1
+
+  if (count >= TITLE_TAP_COUNT_REQUIRED) {
+    enableAiCoachDebugMode()
+    return { nextState: { count: 0, lastTapAt: now }, activated: true }
+  }
+
+  return { nextState: { count, lastTapAt: now }, activated: false }
 }

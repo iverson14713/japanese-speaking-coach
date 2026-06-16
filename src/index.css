@@ -1349,6 +1349,13 @@ body {
   margin-bottom: 4px;
 }
 
+.coach-title--tappable {
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .coach-subtitle {
   font-size: 0.78rem;
   color: var(--color-text-secondary);

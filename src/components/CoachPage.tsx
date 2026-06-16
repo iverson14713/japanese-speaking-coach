@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Language } from '../data/types'
 import {
   COACH_LIMITS,
@@ -23,6 +23,7 @@ import {
 import {
   disableAiCoachDebugMode,
   isAiCoachDebugMode,
+  registerTitleTapForDebug,
   syncAiCoachDebugFromUrl,
 } from '../utils/aiCoachDebugMode'
 import { CoachChatView } from './CoachChatView'
@@ -60,19 +61,52 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   const [correctionInput, setCorrectionInput] = useState('')
   const [correctionResult, setCorrectionResult] = useState<SentenceCorrectionResult | null>(null)
   const [debugMode, setDebugMode] = useState(() => isAiCoachDebugMode())
+  const titleTapRef = useRef({ count: 0, lastTapAt: 0 })
 
   const maxTurns = getMaxTurnsForPlan(plan)
   const dailyLimit = COACH_LIMITS[plan].dailySessions
+
+  const syncDebugState = useCallback(() => {
+    const active = isAiCoachDebugMode()
+    setDebugMode(active)
+    return active
+  }, [])
 
   const refreshUsage = useCallback(() => {
     setRemainingSessions(getRemainingCoachSessions(plan, language))
   }, [plan, language])
 
   useEffect(() => {
-    setDebugMode(syncAiCoachDebugFromUrl())
+    syncAiCoachDebugFromUrl()
+    syncDebugState()
+    refreshUsage()
+  }, [syncDebugState, refreshUsage])
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        syncDebugState()
+        refreshUsage()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [syncDebugState, refreshUsage])
+
+  useEffect(() => {
     refreshUsage()
     resetSessionState()
   }, [language, refreshUsage])
+
+  function handleTitleTap() {
+    const { nextState, activated } = registerTitleTapForDebug(titleTapRef.current)
+    titleTapRef.current = nextState
+    if (activated) {
+      setDebugMode(true)
+      setError(null)
+      refreshUsage()
+    }
+  }
 
   function handleDisableDebugMode() {
     disableAiCoachDebugMode()
@@ -105,6 +139,9 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   }
 
   function requireSession(): boolean {
+    if (isAiCoachDebugMode()) {
+      return true
+    }
     if (!canStartCoachSession(plan, language)) {
       setError(`今日 AI 教練次數已用完（${plan === 'free' ? 'Free 每日 1 次' : 'Pro 每日 5 次'}）`)
       return false
@@ -297,7 +334,21 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   return (
     <>
       <header className="coach-header">
-        <h1 className="coach-title">AI 口說教練</h1>
+        <h1
+          className="coach-title coach-title--tappable"
+          onClick={handleTitleTap}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              handleTitleTap()
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="AI 口說教練"
+        >
+          AI 口說教練
+        </h1>
         <p className="coach-subtitle">想練什麼都可以，讓 AI 陪你模擬旅行對話</p>
       </header>
 
@@ -307,7 +358,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         <div className="coach-debug-bar" role="status">
           <span className="coach-debug-badge">測試模式</span>
           <button type="button" className="coach-debug-off" onClick={handleDisableDebugMode}>
-            關閉測試模式
+            關閉
           </button>
         </div>
       ) : null}
