@@ -44,10 +44,12 @@ import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { showToast } from '../utils/toast'
 import {
   buildCoachChatSnapshot,
-  clearCoachChatSnapshot,
+  clearCoachChatSnapshotForMode,
   clearCoachLearningSummary,
   loadCoachLearningSummary,
+  loadCoachPracticeModePreference,
   readInitialCoachState,
+  saveCoachPracticeModePreference,
   saveCoachChatSnapshot,
   saveCoachLearningSummary,
   takeRecentHistoryForApi,
@@ -82,7 +84,8 @@ function formatAiConnectionError(debugMode: boolean): string {
 }
 
 export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
-  const initialCoachStateRef = useRef(readInitialCoachState(language))
+  const initialModeRef = useRef(loadCoachPracticeModePreference(language))
+  const initialCoachStateRef = useRef(readInitialCoachState(language, initialModeRef.current))
   const initialCoach = initialCoachStateRef.current
 
   const [plan] = useState<CoachPlan>(DEFAULT_PLAN)
@@ -116,6 +119,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const prevLanguageRef = useRef(language)
+  const prevModeRef = useRef<CoachPracticeMode>(initialCoach.practiceMode)
   const skipNextSaveRef = useRef(true)
 
   const handleSpeechResult = useCallback((transcript: string) => {
@@ -206,12 +210,14 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     skipNextSaveRef.current = true
     refreshUsage()
 
-    const nextCoach = readInitialCoachState(language)
+    const preferredMode = loadCoachPracticeModePreference(language)
+    const nextCoach = readInitialCoachState(language, preferredMode)
     stopCoachSpeech()
     resetAutoSpeak()
 
     if (!nextCoach.hasStoredChat) {
-      resetToWelcome()
+      setPracticeMode(preferredMode)
+      resetToWelcome(preferredMode)
       return
     }
 
@@ -229,11 +235,12 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     markExistingAsSpoken(nextCoach.messages)
   }, [language, refreshUsage, resetAutoSpeak, stopCoachSpeech])
 
-  const persistCoachChat = useCallback(() => {
+  const persistCoachChat = useCallback((override?: { mode?: CoachPracticeMode }) => {
+    const mode = override?.mode ?? practiceMode
     saveCoachChatSnapshot(
       buildCoachChatSnapshot({
         language,
-        practiceMode,
+        practiceMode: mode,
         phase,
         sessionInfo,
         scenarioKey,
@@ -280,15 +287,14 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   function handleClearChat() {
     stopCoachSpeech()
     resetAutoSpeak()
-    clearCoachChatSnapshot(language)
+    clearCoachChatSnapshotForMode(language, practiceMode)
     clearCoachLearningSummary(language)
-    setPracticeMode('free-chat')
     setPhase('welcome')
     setChatMode(null)
     setError(null)
     setTopicSession(null)
     setSessionInfo(null)
-    setMessages(createWelcomeMessages('free-chat', language))
+    setMessages(createWelcomeMessages(practiceMode, language))
     setInput('')
     setUserTurns(0)
     setScenarioKey('')
@@ -306,30 +312,10 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     }
   }, [isListening, inputDisabled, stopListening])
 
-  function resetToWelcome() {
+  function resetToWelcome(modeOverride?: CoachPracticeMode) {
     stopCoachSpeech()
     resetAutoSpeak()
-    setPracticeMode('free-chat')
-    setPhase('welcome')
-    setChatMode(null)
-    setError(null)
-    setTopicSession(null)
-    setSessionInfo(null)
-    setMessages(createWelcomeMessages('free-chat', language))
-    setInput('')
-    setUserTurns(0)
-    setScenarioKey('')
-    setCustomHints([])
-    setAwaitingCustomInput(false)
-  }
-
-  function handlePracticeModeChange(mode: CoachPracticeMode) {
-    if (mode === practiceMode || loading) {
-      return
-    }
-
-    stopCoachSpeech()
-    resetAutoSpeak()
+    const mode = modeOverride ?? practiceMode
     setPracticeMode(mode)
     setPhase('welcome')
     setChatMode(null)
@@ -342,6 +328,52 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     setScenarioKey('')
     setCustomHints([])
     setAwaitingCustomInput(false)
+  }
+
+  function handlePracticeModeChange(mode: CoachPracticeMode) {
+    if (mode === practiceMode || loading) {
+      return
+    }
+
+    // Save current mode chat before switching.
+    persistCoachChat({ mode: practiceMode })
+    saveCoachPracticeModePreference(language, mode)
+    prevModeRef.current = mode
+    skipNextSaveRef.current = true
+
+    stopCoachSpeech()
+    resetAutoSpeak()
+    setPracticeMode(mode)
+
+    const nextCoach = readInitialCoachState(language, mode)
+    if (!nextCoach.hasStoredChat) {
+      setPhase('welcome')
+      setChatMode(null)
+      setError(null)
+      setTopicSession(null)
+      setSessionInfo(null)
+      setScenarioKey('')
+      setUserTurns(0)
+      setCustomHints([])
+      setAwaitingCustomInput(false)
+      setMessages(createWelcomeMessages(mode, language))
+      setInput('')
+      markExistingAsSpoken(createWelcomeMessages(mode, language))
+      return
+    }
+
+    setPhase(nextCoach.phase)
+    setChatMode(mode === 'scenario-practice' ? 'custom' : null)
+    setError(null)
+    setTopicSession(null)
+    setSessionInfo(nextCoach.sessionInfo)
+    setScenarioKey(nextCoach.scenarioKey)
+    setUserTurns(nextCoach.userTurns)
+    setCustomHints([])
+    setAwaitingCustomInput(false)
+    setMessages(nextCoach.messages)
+    setInput('')
+    markExistingAsSpoken(nextCoach.messages)
   }
 
   function handleTitleTap() {

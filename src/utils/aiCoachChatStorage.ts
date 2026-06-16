@@ -3,6 +3,7 @@ import type { ChatMessage, ChatSessionInfo, CoachPracticeMode } from '../service
 
 const CHAT_STORAGE_PREFIX = 'aiCoachChat'
 const SUMMARY_STORAGE_PREFIX = 'aiCoachSummary'
+const MODE_STORAGE_PREFIX = 'aiCoachMode'
 
 const MAX_STORED_MESSAGES = 30
 const MAX_API_MESSAGES = 10
@@ -29,22 +30,36 @@ export type CoachChatSnapshot = {
   messages: StoredMessage[]
 }
 
-function chatKey(language: Language): string {
-  return `${CHAT_STORAGE_PREFIX}_${language}`
+function modeKey(language: Language): string {
+  return `${MODE_STORAGE_PREFIX}_${language}`
+}
+
+function keyModeSuffix(mode: CoachPracticeMode): 'freeChat' | 'scenarioPractice' {
+  return mode === 'free-chat' ? 'freeChat' : 'scenarioPractice'
+}
+
+function chatKey(language: Language, mode: CoachPracticeMode): string {
+  return `${CHAT_STORAGE_PREFIX}_${language}_${keyModeSuffix(mode)}`
 }
 
 function summaryKey(language: Language): string {
   return `${SUMMARY_STORAGE_PREFIX}_${language}`
 }
 
-export function loadCoachChatSnapshot(language: Language): CoachChatSnapshot | null {
+export function loadCoachChatSnapshot(language: Language, mode: CoachPracticeMode): CoachChatSnapshot | null {
   try {
-    const raw = localStorage.getItem(chatKey(language))
+    const raw = localStorage.getItem(chatKey(language, mode))
     if (!raw) {
       return null
     }
     const parsed = JSON.parse(raw) as CoachChatSnapshot
-    if (!parsed || parsed.version !== 1 || parsed.language !== language || !Array.isArray(parsed.messages)) {
+    if (
+      !parsed ||
+      parsed.version !== 1 ||
+      parsed.language !== language ||
+      parsed.practiceMode !== mode ||
+      !Array.isArray(parsed.messages)
+    ) {
       return null
     }
     return parsed
@@ -55,7 +70,7 @@ export function loadCoachChatSnapshot(language: Language): CoachChatSnapshot | n
 
 export function saveCoachChatSnapshot(snapshot: CoachChatSnapshot): void {
   try {
-    localStorage.setItem(chatKey(snapshot.language), JSON.stringify(snapshot))
+    localStorage.setItem(chatKey(snapshot.language, snapshot.practiceMode), JSON.stringify(snapshot))
   } catch {
     // Ignore storage errors
   }
@@ -71,11 +86,11 @@ export type InitialCoachState = {
   hasStoredChat: boolean
 }
 
-export function readInitialCoachState(language: Language): InitialCoachState {
-  const snapshot = loadCoachChatSnapshot(language)
+export function readInitialCoachState(language: Language, mode: CoachPracticeMode): InitialCoachState {
+  const snapshot = loadCoachChatSnapshot(language, mode)
   if (!snapshot || snapshot.messages.length === 0) {
     return {
-      practiceMode: 'free-chat',
+      practiceMode: mode,
       phase: 'welcome',
       sessionInfo: null,
       scenarioKey: '',
@@ -120,7 +135,33 @@ export function buildCoachChatSnapshot(input: {
 
 export function clearCoachChatSnapshot(language: Language): void {
   try {
-    localStorage.removeItem(chatKey(language))
+    localStorage.removeItem(chatKey(language, 'free-chat'))
+    localStorage.removeItem(chatKey(language, 'scenario-practice'))
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function clearCoachChatSnapshotForMode(language: Language, mode: CoachPracticeMode): void {
+  try {
+    localStorage.removeItem(chatKey(language, mode))
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function loadCoachPracticeModePreference(language: Language): CoachPracticeMode {
+  try {
+    const raw = localStorage.getItem(modeKey(language))
+    return raw === 'scenario-practice' ? 'scenario-practice' : 'free-chat'
+  } catch {
+    return 'free-chat'
+  }
+}
+
+export function saveCoachPracticeModePreference(language: Language, mode: CoachPracticeMode): void {
+  try {
+    localStorage.setItem(modeKey(language), mode)
   } catch {
     // Ignore storage errors
   }
