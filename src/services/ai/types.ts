@@ -20,6 +20,8 @@ export const COACH_LIMITS: Record<CoachPlan, CoachLimits> = {
   pro: { dailySessions: 5, maxTurnsPerSession: 8 },
 }
 
+export type CoachPracticeMode = 'free-chat' | 'scenario-practice'
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
   text: string
@@ -140,6 +142,13 @@ export interface ConversationReplyRequest {
   plan: CoachPlan
   history: ChatMessage[]
   userMessage: string
+  practiceMode?: CoachPracticeMode
+}
+
+export interface FreeChatReplyRequest {
+  language: Language
+  history: ChatMessage[]
+  userMessage: string
 }
 
 export interface TopicSuggestionRequest {
@@ -154,8 +163,14 @@ export interface TopicConversationRequest {
 
 export const COACH_CHAT_INPUT_PLACEHOLDER = '用中文描述想說的話，或用學習語言回覆教練...'
 
-export const COACH_WELCOME_TEXT =
-  '今天想練什麼呢？\n你可以自己開一個旅行情境，\n也可以讓我幫你開一個話題。'
+export const COACH_FREE_CHAT_WELCOME =
+  '嗨！我是你的語言教練。\n隨時用中文或學習語言跟我聊天練口說吧！'
+
+export const COACH_SCENARIO_WELCOME =
+  '今天想練什麼情境呢？\n你可以自己輸入旅行情境，\n也可以讓我幫你開一個話題。'
+
+/** @deprecated Use COACH_SCENARIO_WELCOME or COACH_FREE_CHAT_WELCOME */
+export const COACH_WELCOME_TEXT = COACH_SCENARIO_WELCOME
 
 export const REPLY_PLACEHOLDERS: Record<Language, string> = {
   ja: '日文で返してみよう...',

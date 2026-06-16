@@ -1467,6 +1467,37 @@ body {
   gap: 6px;
 }
 
+.coach-practice-mode-bar {
+  display: flex;
+  gap: 6px;
+  padding: 0 20px 4px;
+}
+
+.coach-practice-mode {
+  flex: 1;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.coach-practice-mode--active {
+  color: var(--color-primary-dark);
+  background: #fff8f4;
+  border-color: #ecd0c6;
+  font-weight: 600;
+}
+
+.coach-practice-mode:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .coach-voice-mode {
   flex: 1;
   padding: 6px 10px;

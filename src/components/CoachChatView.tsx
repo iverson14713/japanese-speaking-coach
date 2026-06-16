@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Language } from '../data/types'
-import type { ChatMessage, ChatSessionInfo, SentenceCorrectionResult } from '../services/ai'
+import type { ChatMessage, ChatSessionInfo, CoachPracticeMode, SentenceCorrectionResult } from '../services/ai'
 import { SpeakButton } from './SpeakButton'
 
 interface UserMessageExtras {
@@ -15,6 +15,7 @@ interface AssistantMessageExtras {
 
 interface CoachChatViewProps {
   language: Language
+  practiceMode: CoachPracticeMode
   phase: 'welcome' | 'active' | 'ended'
   session: ChatSessionInfo | null
   messages: ChatMessage[]
@@ -29,6 +30,7 @@ interface CoachChatViewProps {
 
 export function CoachChatView({
   language,
+  practiceMode,
   phase,
   session,
   messages,
@@ -44,8 +46,11 @@ export function CoachChatView({
   const [userExtras, setUserExtras] = useState<Record<number, UserMessageExtras>>({})
   const [actionLoading, setActionLoading] = useState<number | null>(null)
 
-  const chatEnded = phase === 'ended' || userTurns >= maxTurns
+  const chatEnded =
+    practiceMode === 'scenario-practice' && (phase === 'ended' || userTurns >= maxTurns)
   const currentTurn = phase === 'welcome' ? 0 : Math.min(userTurns + 1, maxTurns)
+  const showSessionPanel =
+    practiceMode === 'scenario-practice' && session && phase !== 'welcome'
 
   function getAssistantExtras(index: number): AssistantMessageExtras {
     return assistantExtras[index] ?? { showTranslation: false, showHint: false }
@@ -72,7 +77,7 @@ export function CoachChatView({
 
   return (
     <div className="coach-chat-view">
-      {session && phase !== 'welcome' ? (
+      {showSessionPanel ? (
         <div className="coach-chat-session coach-chat-session--compact">
           <p className="coach-chat-session-row">
             <span className="coach-chat-session-label">情境</span>
@@ -96,7 +101,10 @@ export function CoachChatView({
         {messages.map((msg, index) => {
           if (msg.role === 'user') {
             const messageExtras = getUserExtras(index)
-            const showCoachHelpAction = phase === 'active' || phase === 'ended'
+            const showCoachHelpAction =
+              practiceMode === 'free-chat'
+                ? phase === 'active'
+                : phase === 'active' || phase === 'ended'
 
             return (
               <li key={`user-${index}`} className="coach-chat-bubble coach-chat-bubble--user">
@@ -266,7 +274,7 @@ export function CoachChatView({
         })}
       </ul>
 
-      {chatEnded && phase !== 'welcome' ? (
+      {chatEnded ? (
         <p className="coach-session-end">本次對話已結束，明天再來練吧！</p>
       ) : null}
     </div>

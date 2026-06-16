@@ -5,6 +5,7 @@ export type {
   CoachAiSource,
   CoachLimits,
   CoachPlan,
+  CoachPracticeMode,
   ConversationReplyResult,
   CustomScenarioResult,
   SentenceCorrectionResult,
@@ -14,14 +15,18 @@ export type {
 export {
   COACH_AI_SOURCE_LABELS,
   COACH_CHAT_INPUT_PLACEHOLDER,
+  COACH_FREE_CHAT_WELCOME,
   COACH_LIMITS,
+  COACH_SCENARIO_WELCOME,
   COACH_WELCOME_TEXT,
   REPLY_PLACEHOLDERS,
 } from './types'
 export {
   continueConversation,
+  continueFreeChat,
   continueTopicConversation,
   correctSentence,
+  detectScenarioStartRequest,
   getCoachAiSource,
   getCoachLastApiError,
   getTopicHint,

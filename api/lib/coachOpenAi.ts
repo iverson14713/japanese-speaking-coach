@@ -33,27 +33,37 @@ export class CoachOpenAiError extends Error {
   }
 }
 
-const COACH_SYSTEM_PROMPT = `你是一位溫柔、自然的旅行口說教練。
-你的任務是陪使用者練習旅行對話，不是翻譯機，也不是死板題庫。
+const FREE_CHAT_PROMPT = `你是溫柔、自然的語言教練與聊天陪練。
+你的任務是陪使用者用「目前學習語言」自由聊天練口說，不是翻譯機，也不是情境角色扮演。
+
+絕對禁止：
+- 扮演飯店櫃台、店員、服務生、當地人等特定場景角色
+- 說 Welcome to our hotel. / いらっしゃいませ / 어서 오세요（居酒屋）等情境開場
+- 假裝使用者在飯店、餐廳、電車等特定場景
+
+必須遵守：
+- 你是「語言教練 / 聊天陪練」，用簡單自然的目標語言跟使用者聊天
+- 使用者看得懂繁體中文；用中文描述想說什麼、求救、提問時 → isCoaching=true，教他目標語言怎麼說
+- 使用者用目標語言聊天 → isCoaching=false，像朋友一樣自然回應並延續話題
+- 使用者說 Hello / 哈囉 / 你好 → 自然回應，例如 "Hello! What would you like to talk about today?"（英文）或對應語言的聊天開場
+- 每次外語回覆 1～2 句，不要太長
+- 不要固定模板，不要每次都用同一句引導`
+
+const SCENARIO_PRACTICE_PROMPT = `你是一位溫柔、自然的旅行口說教練，正在「情境練習」模式中扮演情境裡的對方角色。
+你的任務是陪使用者在特定旅行情境中練習對話，同時在需要時教他怎麼說。
 
 核心原則：
 - 使用者主要是中文使用者，你永遠看得懂繁體中文。
-- 不管目前學習語言是日文、英文或韓文，使用者都可以先用中文說明想表達什麼。
-- 你要根據「目前學習語言」教他怎麼說，再輕輕引導他試著開口。
+- 你要根據「目前學習語言」教他怎麼說，或維持角色自然接話。
 
 回覆規則：
-1. 使用者用繁體中文描述想說的內容（例如「我想問這班車會不會到東京」）→ 進入教學模式：
-   - coachingZh：繁中簡短引導，如「可以這樣說：」（英文學習時可用 "You can say:"，但不要每次都用同一句）
-   - reply：目標語言 1～2 句，可直接開口
-   - replyPronunciation：日文、韓文必填羅馬音/發音輔助；英文可省略
-   - replyMeaningZh：繁中意思
-   - guidanceZh：輕輕引導，如「你可以試著說一次。」「換你回我一句。」「你也可以用中文告訴我你想說什麼。」
-2. 使用者說「我不會說」「怎麼講」「幫我說」「這句怎麼說」→ 依目前情境給一句可直接使用的目標語言句子（教學模式）。
-3. 使用者用目前學習語言回覆 → 維持角色扮演，自然接話（非教學模式）；必要時簡短指出更自然的說法。
-4. 使用者只是打招呼（如「哈囉」）→ 自然回應並延續情境，不要硬塞無關例句。
-5. 每次回覆不要太長，外語以 1～2 句為主。
-6. 不要固定模板，不要不管使用者說什麼都回「你可以先用這句」「沒關係，你可以先用這句」。
-7. 不要要求使用者一定要先用外語；允許先用中文問，再慢慢帶回目標語言。`
+1. 使用者用繁體中文描述想說的內容 → isCoaching=true，教他目標語言怎麼說
+2. 使用者說「我不會說」「怎麼講」「幫我說」→ 教學模式，給可直接使用的目標語言句子
+3. 使用者用目前學習語言回覆 → isCoaching=false，以情境角色自然接話
+4. 使用者打招呼 → 以角色身份自然回應，延續情境
+5. 每次外語 1～2 句為主`
+
+const COACH_SYSTEM_PROMPT = SCENARIO_PRACTICE_PROMPT
 
 function languageInstruction(language: CoachLanguage): string {
   const label = LANGUAGE_LABELS[language]
@@ -180,6 +190,72 @@ ${languageInstruction(language)}
   return callOpenAiJson(system, '請幫我開一個旅行口說話題。')
 }
 
+const CONVERSATION_REPLY_JSON = `只回傳 JSON：
+{
+  "isCoaching": boolean,
+  "coachingZh": "繁中簡短引導（教學模式時，如「可以這樣說：」）",
+  "reply": "目標語言句子（1～2 句）",
+  "replyPronunciation": "發音輔助（ja/ko 必填）",
+  "replyMeaningZh": "繁中意思",
+  "guidanceZh": "輕輕引導繼續開口（可選）",
+  "hint": { "text": "下一句可試著說的目標語言", "meaningZh": "繁中意思", "pronunciation": "發音輔助" }
+}`
+
+export async function generateFreeChatReply(
+  language: CoachLanguage,
+  history: ChatTurn[],
+  userMessage: string,
+): Promise<{
+  reply: string
+  replyMeaningZh: string
+  replyPronunciation?: string
+  coachingZh?: string
+  guidanceZh?: string
+  hint?: { text: string; meaningZh: string; pronunciation?: string }
+}> {
+  const system = `${FREE_CHAT_PROMPT}
+${languageInstruction(language)}
+
+這是「自由聊天」模式，沒有旅行情境或角色扮演。
+
+範例（學習英文，使用者：Hello）：
+reply: "Hello! What would you like to talk about today?"
+replyMeaningZh: "嗨！今天想聊什麼呢？"
+isCoaching: false
+
+範例（學習英文，使用者中文：我想說今天天氣很好）：
+isCoaching: true
+coachingZh: "可以這樣說："
+reply: "The weather is really nice today."
+replyMeaningZh: "今天天氣真的很好。"
+
+${CONVERSATION_REPLY_JSON}`
+
+  const user = `完整聊天紀錄：
+${formatHistory(history)}
+
+使用者最新輸入：${userMessage}`
+
+  const result = await callOpenAiJson<{
+    isCoaching?: boolean
+    coachingZh?: string
+    reply: string
+    replyMeaningZh: string
+    replyPronunciation?: string
+    guidanceZh?: string
+    hint?: { text: string; meaningZh: string; pronunciation?: string }
+  }>(system, user)
+
+  return {
+    reply: result.reply,
+    replyMeaningZh: result.replyMeaningZh,
+    replyPronunciation: result.replyPronunciation,
+    coachingZh: result.isCoaching ? result.coachingZh : undefined,
+    guidanceZh: result.guidanceZh,
+    hint: result.hint,
+  }
+}
+
 export async function generateConversationReply(
   context: CoachSessionContext,
   history: ChatTurn[],
@@ -192,10 +268,10 @@ export async function generateConversationReply(
   guidanceZh?: string
   hint?: { text: string; meaningZh: string; pronunciation?: string }
 }> {
-  const system = `${COACH_SYSTEM_PROMPT}
+  const system = `${SCENARIO_PRACTICE_PROMPT}
 ${languageInstruction(context.language)}
 
-目前練習設定：
+目前練習設定（情境練習模式）：
 - 旅行情境：${context.scenarioTitle}
 - 你的角色：${context.roleLabelZh}
 - 練習目標：${context.goalZh}
@@ -204,21 +280,12 @@ ${languageInstruction(context.language)}
 請根據完整聊天紀錄與使用者最新輸入回覆。
 - 繁體中文輸入（描述想說什麼、提問、求救）→ isCoaching=true，用目標語言教他怎麼說。
 - 目標語言輸入且合理 → isCoaching=false，角色自然接話。
-- 打招呼 → 自然回應，延續情境，isCoaching=false。
+- 打招呼 → 以角色身份自然回應，延續情境，isCoaching=false。
 
 教學模式 JSON 範例（使用者中文：我想問這班車會不會到東京）：
 coachingZh「可以這樣說：」、reply 為目標語言句子、replyPronunciation、replyMeaningZh、guidanceZh「你可以試著說一次。」
 
-只回傳 JSON：
-{
-  "isCoaching": boolean,
-  "coachingZh": "繁中簡短引導（教學模式時，如「可以這樣說：」）",
-  "reply": "目標語言句子（1～2 句）",
-  "replyPronunciation": "發音輔助（ja/ko 必填）",
-  "replyMeaningZh": "繁中意思",
-  "guidanceZh": "輕輕引導繼續開口（可選）",
-  "hint": { "text": "下一句可試著說的目標語言", "meaningZh": "繁中意思", "pronunciation": "發音輔助" }
-}`
+${CONVERSATION_REPLY_JSON}`
 
   const user = `完整聊天紀錄：
 ${formatHistory(history)}

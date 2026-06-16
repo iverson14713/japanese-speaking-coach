@@ -7,6 +7,7 @@ import type {
   ConversationReplyResult,
   CustomScenarioRequest,
   CustomScenarioResult,
+  FreeChatReplyRequest,
   SentenceCorrectionRequest,
   SentenceCorrectionResult,
   SuggestUserReplyRequest,
@@ -659,6 +660,80 @@ function mapSuggestUserReplyResponse(
   }
 }
 
+function mockFreeChatReply(language: Language, userMessage: string): ConversationReplyResult {
+  const trimmed = userMessage.trim()
+
+  if (isExplicitHelpRequest(trimmed) || isChineseDominantInput(trimmed)) {
+    const phrase = pickPhraseForChineseMessage(language, trimmed, 0)
+    return {
+      coachingZh: coachingIntroForLanguage(language),
+      reply: phrase.foreign,
+      replyPronunciation: phrase.pronunciation,
+      replyMeaningZh: phrase.meaningZh,
+      guidanceZh: '你可以試著用這句跟我聊聊看。',
+    }
+  }
+
+  const greetings: Record<Language, ConversationReplyResult> = {
+    en: {
+      reply: 'Hello! What would you like to talk about today?',
+      replyMeaningZh: '嗨！今天想聊什麼呢？',
+      guidanceZh: '用英文或中文都可以，慢慢說沒關係。',
+    },
+    ja: {
+      reply: 'こんにちは！今日は何を話しましょうか？',
+      replyPronunciation: 'konnichiwa! kyou wa nani o hanashimashou ka?',
+      replyMeaningZh: '你好！今天想聊什麼呢？',
+      guidanceZh: '日文或中文都可以，慢慢說沒關係。',
+    },
+    ko: {
+      reply: '안녕하세요! 오늘은 무엇을 이야기해 볼까요?',
+      replyPronunciation: 'annyeonghaseyo! oneureun mueoseul iyagihae bolkkayo?',
+      replyMeaningZh: '你好！今天想聊什麼呢？',
+      guidanceZh: '韓文或中文都可以，慢慢說沒關係。',
+    },
+  }
+
+  if (/^(hello|hi)$/i.test(trimmed) || /^(哈囉|你好|嗨)$/.test(trimmed)) {
+    return greetings[language]
+  }
+
+  const followUps: Record<Language, ConversationReplyResult[]> = {
+    en: [
+      {
+        reply: "That's interesting! Tell me more.",
+        replyMeaningZh: '很有趣！再多說一點。',
+        guidanceZh: '試著用英文繼續聊下去吧。',
+      },
+      {
+        reply: 'I see. How do you feel about that?',
+        replyMeaningZh: '原來如此，你覺得怎麼樣？',
+        guidanceZh: '用你會的字慢慢說也可以。',
+      },
+    ],
+    ja: [
+      {
+        reply: 'そうなんですね。もう少し教えてください。',
+        replyPronunciation: 'sou nan desu ne. mou sukoshi oshiete kudasai',
+        replyMeaningZh: '是這樣啊，再多告訴我一些吧。',
+        guidanceZh: '試著用日文繼續聊下去吧。',
+      },
+    ],
+    ko: [
+      {
+        reply: '그렇군요. 조금 더 이야기해 주세요.',
+        replyPronunciation: 'geureokgunyo. jogeum deo iyagihae juseyo',
+        replyMeaningZh: '是這樣啊，再多說一點吧。',
+        guidanceZh: '試著用韓文繼續聊下去吧。',
+      },
+    ],
+  }
+
+  const options = followUps[language]
+  const index = Math.min(trimmed.length % options.length, options.length - 1)
+  return options[index]
+}
+
 function mockConversationReply(
   language: Language,
   userMessage: string,
@@ -692,6 +767,7 @@ function mockConversationReply(
 type CoachApiAction =
   | 'custom-scenario'
   | 'start-topic-chat'
+  | 'free-chat-reply'
   | 'conversation-reply'
   | 'suggest-user-reply'
   | 'correct-sentence'
@@ -845,6 +921,23 @@ export async function continueTopicConversation(
   })
 }
 
+export async function continueFreeChat(
+  request: FreeChatReplyRequest,
+): Promise<ConversationReplyResult> {
+  return withCoachApi(
+    'free-chat-reply',
+    {
+      language: request.language,
+      history: historyForApi(request.history),
+      userMessage: request.userMessage,
+    },
+    async () => {
+      await delay(500)
+      return mockFreeChatReply(request.language, request.userMessage)
+    },
+  )
+}
+
 export async function continueConversation(
   request: ConversationReplyRequest,
 ): Promise<ConversationReplyResult> {
@@ -880,4 +973,34 @@ export function getTopicHint(
 
 export function isCoachMockMode(): boolean {
   return FORCE_MOCK
+}
+
+export type ScenarioStartRequest =
+  | { type: 'topic' }
+  | { type: 'custom'; scenario: string }
+
+export function detectScenarioStartRequest(text: string): ScenarioStartRequest | null {
+  const trimmed = text.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  if (/幫我開一個情境|幫我開一個話題|開一個情境|開一個話題|幫我開話題/.test(trimmed)) {
+    return { type: 'topic' }
+  }
+
+  if (
+    /我想練|想練習|想練|幫我練|我要練|練一下|練習一下/.test(trimmed) &&
+    /飯店|酒店|餐廳|餐館|電車|入住|點餐|問路|便利商店|居酒屋|咖啡|地鐵|hotel|restaurant|check.?in/i.test(
+      trimmed,
+    )
+  ) {
+    return { type: 'custom', scenario: trimmed }
+  }
+
+  if (/^我想練/.test(trimmed) || /^幫我練/.test(trimmed)) {
+    return { type: 'custom', scenario: trimmed }
+  }
+
+  return null
 }

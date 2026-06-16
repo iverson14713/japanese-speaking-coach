@@ -4,15 +4,19 @@ import { LANGUAGE_LABELS, SPEECH_LANG } from '../data/types'
 import {
   COACH_AI_SOURCE_LABELS,
   COACH_CHAT_INPUT_PLACEHOLDER,
+  COACH_FREE_CHAT_WELCOME,
   COACH_LIMITS,
-  COACH_WELCOME_TEXT,
+  COACH_SCENARIO_WELCOME,
   type ChatMessage,
   type ChatSessionInfo,
   type CoachAiSource,
   type CoachPlan,
+  type CoachPracticeMode,
   type SentenceCorrectionResult,
   type TopicChatSession,
   continueConversation,
+  continueFreeChat,
+  detectScenarioStartRequest,
   inferUserRoleLabel,
   suggestUserReply,
   getCoachAiSource,
@@ -50,8 +54,9 @@ type CoachPhase = 'welcome' | 'active' | 'ended'
 type ChatMode = 'custom' | 'topic' | null
 type VoiceInputMode = 'zh-coach' | 'practice-language'
 
-function createWelcomeMessages(): ChatMessage[] {
-  return [{ role: 'assistant', text: COACH_WELCOME_TEXT, variant: 'welcome' }]
+function createWelcomeMessages(mode: CoachPracticeMode): ChatMessage[] {
+  const text = mode === 'free-chat' ? COACH_FREE_CHAT_WELCOME : COACH_SCENARIO_WELCOME
+  return [{ role: 'assistant', text, variant: 'welcome' }]
 }
 
 function buildScenarioMetaText(session: ChatSessionInfo): string {
@@ -72,6 +77,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     getRemainingCoachSessions(DEFAULT_PLAN, language),
   )
   const [phase, setPhase] = useState<CoachPhase>('welcome')
+  const [practiceMode, setPracticeMode] = useState<CoachPracticeMode>('free-chat')
   const [chatMode, setChatMode] = useState<ChatMode>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -79,7 +85,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   const [scenarioKey, setScenarioKey] = useState('')
   const [topicSession, setTopicSession] = useState<TopicChatSession | null>(null)
   const [sessionInfo, setSessionInfo] = useState<ChatSessionInfo | null>(null)
-  const [messages, setMessages] = useState<ChatMessage[]>(createWelcomeMessages)
+  const [messages, setMessages] = useState<ChatMessage[]>(() => createWelcomeMessages('free-chat'))
   const [input, setInput] = useState('')
   const [userTurns, setUserTurns] = useState(0)
   const [customHints, setCustomHints] = useState<TopicChatSession['hints']>([])
@@ -129,7 +135,10 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
 
   const maxTurns = getMaxTurnsForPlan(plan)
   const dailyLimit = COACH_LIMITS[plan].dailySessions
-  const inputDisabled = loading || phase === 'ended' || (phase === 'active' && userTurns >= maxTurns)
+  const scenarioEnded = phase === 'ended' || (phase === 'active' && userTurns >= maxTurns)
+  const inputDisabled =
+    loading ||
+    (practiceMode === 'scenario-practice' && scenarioEnded)
 
   const syncDebugState = useCallback(() => {
     const active = isAiCoachDebugMode()
@@ -181,12 +190,34 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   function resetToWelcome() {
     stopCoachSpeech()
     resetAutoSpeak()
+    setPracticeMode('free-chat')
     setPhase('welcome')
     setChatMode(null)
     setError(null)
     setTopicSession(null)
     setSessionInfo(null)
-    setMessages(createWelcomeMessages())
+    setMessages(createWelcomeMessages('free-chat'))
+    setInput('')
+    setUserTurns(0)
+    setScenarioKey('')
+    setCustomHints([])
+    setAwaitingCustomInput(false)
+  }
+
+  function handlePracticeModeChange(mode: CoachPracticeMode) {
+    if (mode === practiceMode || loading) {
+      return
+    }
+
+    stopCoachSpeech()
+    resetAutoSpeak()
+    setPracticeMode(mode)
+    setPhase('welcome')
+    setChatMode(null)
+    setError(null)
+    setTopicSession(null)
+    setSessionInfo(null)
+    setMessages(createWelcomeMessages(mode))
     setInput('')
     setUserTurns(0)
     setScenarioKey('')
@@ -238,6 +269,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
 
     setLoading(true)
     setError(null)
+    setPracticeMode('scenario-practice')
 
     const userMessage: ChatMessage = { role: 'user', text: scenario }
     setMessages((current) => [...current.filter((m) => m.variant !== 'welcome'), userMessage])
@@ -275,7 +307,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
       ])
     } catch {
       setError(formatAiConnectionError(debugMode))
-      setMessages(createWelcomeMessages())
+      setMessages(createWelcomeMessages('scenario-practice'))
       setPhase('welcome')
     } finally {
       setLoading(false)
@@ -290,6 +322,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
 
     setLoading(true)
     setError(null)
+    setPracticeMode('scenario-practice')
 
     const userMessage: ChatMessage = { role: 'user', text: '幫我開一個話題' }
     setMessages((current) => [...current.filter((m) => m.variant !== 'welcome'), userMessage])
@@ -327,8 +360,72 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
       ])
     } catch {
       setError(formatAiConnectionError(debugMode))
-      setMessages(createWelcomeMessages())
+      setMessages(createWelcomeMessages('scenario-practice'))
       setPhase('welcome')
+    } finally {
+      setLoading(false)
+      refreshAiSource()
+    }
+  }
+
+  async function handleFreeChatSend(text: string) {
+    const scenarioRequest = detectScenarioStartRequest(text)
+    if (scenarioRequest) {
+      if (scenarioRequest.type === 'topic') {
+        await beginTopicChat()
+      } else {
+        await beginCustomScenario(scenarioRequest.scenario)
+      }
+      return
+    }
+
+    if (phase === 'welcome' && !requireSession()) {
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    const previousMessages = messages
+    const isFirstMessage = phase === 'welcome'
+    const history: ChatMessage[] = isFirstMessage
+      ? [...messages.filter((message) => message.variant !== 'welcome'), { role: 'user', text }]
+      : [...messages, { role: 'user', text }]
+
+    if (isFirstMessage) {
+      consumeCoachSession(language)
+      refreshUsage()
+      setPhase('active')
+    }
+
+    setMessages(history)
+
+    try {
+      const reply = await continueFreeChat({
+        language,
+        history,
+        userMessage: text,
+      })
+
+      setMessages((current) => [
+        ...current,
+        {
+          role: 'assistant',
+          text: reply.reply,
+          meaningZh: reply.replyMeaningZh,
+          pronunciation: reply.replyPronunciation,
+          coachingZh: reply.coachingZh,
+          guidanceZh: reply.guidanceZh,
+          variant: 'dialogue',
+        },
+      ])
+    } catch {
+      setError(formatAiConnectionError(debugMode))
+      setMessages(previousMessages)
+      if (isFirstMessage) {
+        setPhase('welcome')
+      }
+      setInput(text)
     } finally {
       setLoading(false)
       refreshAiSource()
@@ -341,8 +438,19 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
       return
     }
 
+    setInput('')
+
+    if (practiceMode === 'free-chat') {
+      await handleFreeChatSend(text)
+      return
+    }
+
     if (phase === 'welcome') {
-      setInput('')
+      const scenarioRequest = detectScenarioStartRequest(text)
+      if (scenarioRequest?.type === 'topic') {
+        await beginTopicChat()
+        return
+      }
       await beginCustomScenario(text)
       return
     }
@@ -360,7 +468,6 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     const nextUserTurn = userTurns + 1
     const history: ChatMessage[] = [...messages, { role: 'user', text }]
     setMessages(history)
-    setInput('')
     setUserTurns(nextUserTurn)
 
     try {
@@ -374,6 +481,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         plan,
         history,
         userMessage: text,
+        practiceMode: 'scenario-practice',
       })
 
       setMessages((current) => [
@@ -412,6 +520,17 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
       return null
     }
     try {
+      if (practiceMode === 'free-chat') {
+        return await suggestUserReply({
+          language,
+          userInput: userMessage.text,
+          currentScenario: '自由聊天',
+          aiRole: '語言教練',
+          userRole: '學習者',
+          goal: '自由對話練習',
+          history: messages,
+        })
+      }
       if (!sessionInfo) {
         return null
       }
@@ -503,6 +622,25 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
 
       <LanguageSelector selected={language} onSelect={onLanguageChange} />
 
+      <div className="coach-practice-mode-bar" role="group" aria-label="練習模式">
+        <button
+          type="button"
+          className={`coach-practice-mode${practiceMode === 'free-chat' ? ' coach-practice-mode--active' : ''}`}
+          onClick={() => handlePracticeModeChange('free-chat')}
+          disabled={loading || isListening}
+        >
+          自由聊天
+        </button>
+        <button
+          type="button"
+          className={`coach-practice-mode${practiceMode === 'scenario-practice' ? ' coach-practice-mode--active' : ''}`}
+          onClick={() => handlePracticeModeChange('scenario-practice')}
+          disabled={loading || isListening}
+        >
+          情境練習
+        </button>
+      </div>
+
       {debugMode ? (
         <div className="coach-debug-bar" role="status">
           <span className="coach-debug-badge">測試模式</span>
@@ -536,13 +674,14 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
       <div className="coach-chat-shell">
         <CoachChatView
           language={language}
+          practiceMode={practiceMode}
           phase={phase}
           session={sessionInfo}
           messages={messages}
           userTurns={userTurns}
           maxTurns={maxTurns}
           loading={loading}
-          showQuickActions={phase === 'welcome' && !awaitingCustomInput}
+          showQuickActions={practiceMode === 'scenario-practice' && phase === 'welcome' && !awaitingCustomInput}
           onStartTopic={() => void beginTopicChat()}
           onFocusCustomInput={handleFocusCustomInput}
           onRequestNaturalCorrection={handleRequestNaturalCorrection}

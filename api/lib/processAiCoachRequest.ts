@@ -2,6 +2,7 @@ import {
   CoachOpenAiError,
   generateConversationReply,
   generateCustomScenario,
+  generateFreeChatReply,
   generateSuggestUserReply,
   generateTopicChat,
   type CoachSessionContext,
@@ -12,6 +13,7 @@ type CoachLanguage = 'ja' | 'en' | 'ko'
 export type AiCoachAction =
   | 'custom-scenario'
   | 'start-topic-chat'
+  | 'free-chat-reply'
   | 'conversation-reply'
   | 'suggest-user-reply'
   | 'correct-sentence'
@@ -88,6 +90,24 @@ export async function processAiCoachRequest(body: unknown): Promise<AiCoachResul
           return invalidBody('Invalid language')
         }
         const data = await generateTopicChat(language)
+        return { status: 200, data }
+      }
+
+      case 'free-chat-reply': {
+        const { language, history, userMessage } = payload
+
+        if (!isCoachLanguage(language)) {
+          return invalidBody('Invalid language')
+        }
+        if (!Array.isArray(history) || typeof userMessage !== 'string') {
+          return invalidBody('Missing history or userMessage')
+        }
+
+        const data = await generateFreeChatReply(
+          language,
+          history as { role: 'user' | 'assistant'; text: string }[],
+          userMessage,
+        )
         return { status: 200, data }
       }
 
