@@ -1,17 +1,15 @@
 import type { CategoryId } from '../data/categories'
-import { categories, getCategoryLabel } from '../data/categories'
+import { categories, getCategoryLabel, getCategoryTag } from '../data/categories'
 
 interface CategorySelectorProps {
   selected: CategoryId
   availableCategories: CategoryId[]
-  selectedCategoryCount?: number
   onSelect: (categoryId: CategoryId) => void
 }
 
 export function CategorySelector({
   selected,
   availableCategories,
-  selectedCategoryCount,
   onSelect,
 }: CategorySelectorProps) {
   const visibleCategories = categories.filter((c) => availableCategories.includes(c.id))
@@ -32,9 +30,7 @@ export function CategorySelector({
               onClick={() => onSelect(category.id)}
             >
               <span className="category-button-label">{category.label}</span>
-              {isActive && selectedCategoryCount !== undefined ? (
-                <span className="category-button-count">{selectedCategoryCount} 句</span>
-              ) : null}
+              <span className="category-button-count">{getCategoryTag(category.id)}</span>
             </button>
           )
         })}

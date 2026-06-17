@@ -38,13 +38,12 @@ export function getTotalSentenceCount(language: Language): number {
 }
 
 export function getLibraryHint(language: Language): string {
-  const count = getTotalSentenceCount(language)
   switch (language) {
     case 'ja':
-      return `${count} 句日本旅行常用口說`
+      return '150+ 句旅行日文口說'
     case 'en':
-      return `${count} 句旅行英文口說`
+      return '150+ 句旅行英文口說'
     case 'ko':
-      return `${count} 句旅行韓文口說`
+      return '150+ 句旅行韓文口說'
   }
 }

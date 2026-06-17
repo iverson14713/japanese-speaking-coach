@@ -149,7 +149,6 @@ export function SentencePracticePage({
       <CategorySelector
         selected={selectedCategory}
         availableCategories={availableCategories}
-        selectedCategoryCount={categorySentences.length}
         onSelect={handleCategoryChange}
       />
 
