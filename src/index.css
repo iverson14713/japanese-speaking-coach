@@ -2089,6 +2089,11 @@ body {
   opacity: 0.65;
 }
 
+.coach-chat-input--limit-hint::placeholder {
+  color: var(--color-primary-dark);
+  opacity: 0.85;
+}
+
 .coach-chat-send {
   flex-shrink: 0;
   padding: 11px 18px;
@@ -2111,6 +2116,11 @@ body {
 .coach-chat-send:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.coach-chat-send--upgrade-prompt:not(:disabled) {
+  opacity: 1;
+  cursor: pointer;
 }
 
 .coach-chat {

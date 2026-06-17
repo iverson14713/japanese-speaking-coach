@@ -190,9 +190,21 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   const maxTurns = getMaxTurnsForPlan(plan)
   const dailyLimit = COACH_LIMITS[plan].dailySessions
   const scenarioEnded = phase === 'ended' || (phase === 'active' && userTurns >= maxTurns)
-  const inputDisabled =
-    loading ||
-    (practiceMode === 'scenario-practice' && scenarioEnded)
+  const isDailyLimitReached = !debugMode && !canStartCoachSession(plan, language)
+  const shouldPromptProUpgrade =
+    !debugMode &&
+    plan === 'free' &&
+    ((isDailyLimitReached && phase === 'welcome') ||
+      (practiceMode === 'scenario-practice' && scenarioEnded))
+  const inputDisabled = loading
+
+  const promptProUpgradeIfNeeded = useCallback((): boolean => {
+    if (!shouldPromptProUpgrade) {
+      return false
+    }
+    openProUpgrade('coach-limit')
+    return true
+  }, [shouldPromptProUpgrade, openProUpgrade])
 
   const syncDebugState = useCallback(() => {
     const active = isAiCoachDebugMode()
@@ -461,7 +473,6 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
       return true
     }
     if (!canStartCoachSession(plan, language)) {
-      setError(`今日 AI 教練次數已用完（${plan === 'free' ? 'Free 每日 1 次' : 'Pro 每日 5 次'}）`)
       openProUpgrade('coach-limit')
       return false
     }
@@ -667,8 +678,16 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   }
 
   async function handleSend() {
+    if (loading || isListening) {
+      return
+    }
+
+    if (promptProUpgradeIfNeeded()) {
+      return
+    }
+
     const text = input.trim()
-    if (!text || loading) {
+    if (!text) {
       return
     }
 
@@ -691,6 +710,9 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     }
 
     if (phase === 'ended' || userTurns >= maxTurns || !sessionInfo) {
+      if (promptProUpgradeIfNeeded()) {
+        return
+      }
       return
     }
 
@@ -765,6 +787,10 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   async function handleRequestNaturalCorrection(
     userMessageIndex: number,
   ): Promise<SentenceCorrectionResult | null> {
+    if (promptProUpgradeIfNeeded()) {
+      return null
+    }
+
     const userMessage = messages[userMessageIndex]
     if (!userMessage || userMessage.role !== 'user') {
       return null
@@ -827,7 +853,11 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   }
 
   function handleMicClick() {
-    if (inputDisabled) {
+    if (loading) {
+      return
+    }
+
+    if (promptProUpgradeIfNeeded()) {
       return
     }
 
@@ -848,7 +878,16 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     startListening()
   }
 
-  const inputPlaceholder = COACH_CHAT_INPUT_PLACEHOLDERS[language]
+  const inputPlaceholder = shouldPromptProUpgrade
+    ? '今日練習次數已用完，點送出可升級 Pro 繼續練'
+    : COACH_CHAT_INPUT_PLACEHOLDERS[language]
+
+  function handleQuickStartTopic() {
+    if (promptProUpgradeIfNeeded()) {
+      return
+    }
+    void beginTopicChat()
+  }
 
   return (
     <div className="coach-page">
@@ -935,7 +974,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
           maxTurns={maxTurns}
           loading={loading}
           showQuickActions={practiceMode === 'scenario-practice' && phase === 'welcome' && !awaitingCustomInput}
-          onStartTopic={() => void beginTopicChat()}
+          onStartTopic={handleQuickStartTopic}
           onFocusCustomInput={handleFocusCustomInput}
           onRequestNaturalCorrection={handleRequestNaturalCorrection}
         />
@@ -984,7 +1023,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
           <input
             ref={inputRef}
             type="text"
-            className="coach-chat-input"
+            className={`coach-chat-input${shouldPromptProUpgrade ? ' coach-chat-input--limit-hint' : ''}`}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -996,7 +1035,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
             type="button"
             className={`coach-chat-mic${isListening ? ' coach-chat-mic--active' : ''}`}
             onClick={handleMicClick}
-            disabled={inputDisabled}
+            disabled={loading || isListening}
             aria-label={isListening ? '停止語音輸入' : '語音輸入'}
             aria-pressed={isListening}
           >
@@ -1010,9 +1049,9 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
           </button>
           <button
             type="button"
-            className="coach-chat-send"
+            className={`coach-chat-send${shouldPromptProUpgrade ? ' coach-chat-send--upgrade-prompt' : ''}`}
             onClick={() => void handleSend()}
-            disabled={inputDisabled || isListening || !input.trim()}
+            disabled={loading || isListening || (!shouldPromptProUpgrade && !input.trim())}
           >
             {loading ? '…' : '送出'}
           </button>

@@ -1,7 +1,15 @@
 import type { ProUpgradeReason } from '../context/ProUpgradeContext'
 import { showToast } from '../utils/toast'
 
-const FEATURES = [
+const COACH_LIMIT_FEATURES = [
+  '每日 5 次 AI 口說教練',
+  '單次最多 8 回合',
+  '自由聊天與情境練習都能用',
+  '不會說時可用中文問教練',
+  '句庫收藏不限',
+] as const
+
+const DEFAULT_FEATURES = [
   '每日 5 次 AI 口說教練',
   '單次最多 8 回合',
   '完整情境練習',
@@ -21,9 +29,17 @@ export function ProUpgradeModal({ open, reason, onClose }: ProUpgradeModalProps)
   }
 
   const handleUpgrade = () => {
+    // Placeholder until App Store IAP is wired up.
     showToast('Pro 功能準備中')
     onClose()
   }
+
+  const isCoachLimit = reason === 'coach-limit'
+  const title = isCoachLimit ? '今天練習次數用完了' : '升級 Pro，讓 AI 每天陪你多練幾次'
+  const subtitle = isCoachLimit
+    ? '升級 Pro，讓 AI 教練每天陪你多練幾回。'
+    : '出國前多練幾回，開口更有底氣。'
+  const features = isCoachLimit ? COACH_LIMIT_FEATURES : DEFAULT_FEATURES
 
   return (
     <div className="pro-modal" role="presentation" onClick={onClose}>
@@ -34,17 +50,13 @@ export function ProUpgradeModal({ open, reason, onClose }: ProUpgradeModalProps)
         aria-labelledby="pro-modal-title"
         onClick={(event) => event.stopPropagation()}
       >
-        {reason === 'coach-limit' ? (
-          <p className="pro-modal__hint">今日免費次數已用完</p>
-        ) : null}
-
         <h2 id="pro-modal-title" className="pro-modal__title">
-          升級 Pro，讓 AI 每天陪你多練幾次
+          {title}
         </h2>
-        <p className="pro-modal__subtitle">出國前多練幾回，開口更有底氣。</p>
+        <p className="pro-modal__subtitle">{subtitle}</p>
 
         <ul className="pro-modal__features">
-          {FEATURES.map((feature) => (
+          {features.map((feature) => (
             <li key={feature} className="pro-modal__feature">
               <span className="pro-modal__check" aria-hidden="true">
                 ✓
