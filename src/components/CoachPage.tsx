@@ -42,6 +42,7 @@ import { LanguageSelector } from './LanguageSelector'
 import { useCoachAutoSpeak } from '../hooks/useCoachAutoSpeak'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { showToast } from '../utils/toast'
+import { useProUpgrade } from '../context/ProUpgradeContext'
 import {
   buildCoachChatSnapshot,
   clearCoachChatSnapshotForMode,
@@ -84,6 +85,7 @@ function formatAiConnectionError(debugMode: boolean): string {
 }
 
 export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
+  const { openProUpgrade } = useProUpgrade()
   const initialModeRef = useRef(loadCoachPracticeModePreference(language))
   const initialCoachStateRef = useRef(readInitialCoachState(language, initialModeRef.current))
   const initialCoach = initialCoachStateRef.current
@@ -460,6 +462,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     }
     if (!canStartCoachSession(plan, language)) {
       setError(`今日 AI 教練次數已用完（${plan === 'free' ? 'Free 每日 1 次' : 'Pro 每日 5 次'}）`)
+      openProUpgrade('coach-limit')
       return false
     }
     return true
