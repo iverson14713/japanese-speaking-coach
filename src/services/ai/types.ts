@@ -167,7 +167,14 @@ export interface TopicConversationRequest {
   userTurnIndex: number
 }
 
-export const COACH_CHAT_INPUT_PLACEHOLDER = '用中文描述想說的話，或用學習語言回覆教練...'
+export const COACH_CHAT_INPUT_PLACEHOLDERS: Record<Language, string> = {
+  en: '輸入中文或英文...',
+  ja: '輸入中文或日文...',
+  ko: '輸入中文或韓文...',
+}
+
+/** @deprecated Use COACH_CHAT_INPUT_PLACEHOLDERS[language] */
+export const COACH_CHAT_INPUT_PLACEHOLDER = COACH_CHAT_INPUT_PLACEHOLDERS.en
 
 export const COACH_FREE_CHAT_WELCOME: Record<Language, string> = {
   en: 'Hi! What would you like to practice today?\n你也可以用中文告訴我想練什麼。',

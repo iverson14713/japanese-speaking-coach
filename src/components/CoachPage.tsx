@@ -3,7 +3,7 @@ import type { Language } from '../data/types'
 import { LANGUAGE_LABELS, SPEECH_LANG } from '../data/types'
 import {
   COACH_AI_SOURCE_LABELS,
-  COACH_CHAT_INPUT_PLACEHOLDER,
+  COACH_CHAT_INPUT_PLACEHOLDERS,
   COACH_FREE_CHAT_WELCOME,
   COACH_LIMITS,
   COACH_SCENARIO_WELCOME,
@@ -845,7 +845,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     startListening()
   }
 
-  const inputPlaceholder = COACH_CHAT_INPUT_PLACEHOLDER
+  const inputPlaceholder = COACH_CHAT_INPUT_PLACEHOLDERS[language]
 
   return (
     <div className="coach-page">
