@@ -879,7 +879,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   }
 
   const inputPlaceholder = shouldPromptProUpgrade
-    ? '今日練習次數已用完，點送出可升級 Pro 繼續練'
+    ? '今日次數已用完'
     : COACH_CHAT_INPUT_PLACEHOLDERS[language]
 
   function handleQuickStartTopic() {

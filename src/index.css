@@ -2092,6 +2092,7 @@ body {
 .coach-chat-input--limit-hint::placeholder {
   color: var(--color-primary-dark);
   opacity: 0.85;
+  font-size: 0.92rem;
 }
 
 .coach-chat-send {
