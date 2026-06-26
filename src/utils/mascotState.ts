@@ -18,6 +18,12 @@ export const MASCOT_EMOJI_BY_MOOD: Record<MascotMood, string> = {
 
 export const MASCOT_BASE_PATH = '/mascot'
 
+export function getMascotImageUrl(filename: string): string {
+  const base = import.meta.env.BASE_URL || '/'
+  const normalizedBase = base.endsWith('/') ? base : `${base}/`
+  return `${normalizedBase}mascot/${filename}`
+}
+
 export interface MascotStateInput {
   todayCompleted: boolean
   streakDays: number
@@ -52,7 +58,7 @@ function buildState(
   return {
     mood,
     image,
-    imageUrl: `${MASCOT_BASE_PATH}/${image}`,
+    imageUrl: getMascotImageUrl(image),
     emoji: MASCOT_EMOJI_BY_MOOD[mood],
     title,
     message,

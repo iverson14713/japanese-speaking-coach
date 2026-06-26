@@ -147,14 +147,6 @@ export function TodayPage({
       <main className="app-main today-main">
         <SentenceCard sentence={dailySentence} language={language} mode="daily" />
 
-        <AiPracticeEntry
-          completed={aiPracticeCompleted}
-          canStart={canStartAiPractice}
-          isPro={isPro}
-          onStart={() => onStartDailyAiPractice(dailySentence)}
-          onUpgrade={onOpenProUpgrade}
-        />
-
         <GuidedPracticeFlow
           sentence={dailySentence}
           language={language}
@@ -168,6 +160,15 @@ export function TodayPage({
           onPressStart={handlePressStart}
           onPressEnd={handlePressEnd}
           onCompleteToday={handleCompleteToday}
+        />
+
+        <AiPracticeEntry
+          completed={aiPracticeCompleted}
+          canStart={canStartAiPractice}
+          isPro={isPro}
+          todayCompleted={completedToday}
+          onStart={() => onStartDailyAiPractice(dailySentence)}
+          onUpgrade={onOpenProUpgrade}
         />
       </main>
     </div>

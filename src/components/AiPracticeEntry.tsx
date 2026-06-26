@@ -4,6 +4,7 @@ interface AiPracticeEntryProps {
   completed: boolean
   canStart: boolean
   isPro: boolean
+  todayCompleted: boolean
   onStart: () => void
   onUpgrade: () => void
 }
@@ -12,20 +13,30 @@ export function AiPracticeEntry({
   completed,
   canStart,
   isPro,
+  todayCompleted,
   onStart,
   onUpgrade,
 }: AiPracticeEntryProps) {
   const debugMode = isAiCoachDebugMode()
   const limitReached = !debugMode && !canStart && !isPro
 
-  const title = limitReached ? '升級 Pro 繼續實戰' : '用 AI 實戰一下'
-  const desc = completed
+  const title = completed
     ? 'AI 實戰完成'
     : limitReached
+      ? '升級 Pro 繼續實戰'
+      : todayCompleted
+        ? '用 AI 實戰一下'
+        : '練完後，用 AI 實戰一下'
+
+  const desc = completed
+    ? '今天這句已經實戰過了'
+    : limitReached
       ? '今天 AI 練習次數用完了'
-      : isPro || debugMode
-        ? '進入 AI 情境練習'
-        : '用今天這句練一回合'
+      : todayCompleted
+        ? '讓 AI 用今天這句陪你練一回合'
+        : '完成今日練習後再來挑戰'
+
+  const isSubtle = !completed && !limitReached && !todayCompleted
 
   const handleClick = () => {
     if (completed) {
@@ -41,7 +52,7 @@ export function AiPracticeEntry({
   return (
     <button
       type="button"
-      className={`ai-practice-entry${completed ? ' ai-practice-entry--done' : ''}${limitReached ? ' ai-practice-entry--upgrade' : ''}`}
+      className={`ai-practice-entry${completed ? ' ai-practice-entry--done' : ''}${limitReached ? ' ai-practice-entry--upgrade' : ''}${isSubtle ? ' ai-practice-entry--subtle' : ''}${todayCompleted && !completed && !limitReached ? ' ai-practice-entry--ready' : ''}`}
       onClick={handleClick}
       disabled={completed}
       aria-disabled={completed}
