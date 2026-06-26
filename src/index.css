@@ -56,15 +56,19 @@ body {
 
 /* ── Layout ── */
 
-.coach-tab-root--hidden {
-  display: none;
-}
-
 .coach-tab-root {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
+}
+
+.coach-tab-root--hidden {
+  display: none !important;
+}
+
+.coach-tab-root[hidden] {
+  display: none !important;
 }
 
 .app {

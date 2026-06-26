@@ -127,7 +127,8 @@ function MainApp() {
       ) : null}
 
       <div
-        className={activeTab === 'coach' ? 'coach-tab-root' : 'coach-tab-root coach-tab-root--hidden'}
+        className="coach-tab-root"
+        hidden={activeTab !== 'coach'}
         aria-hidden={activeTab !== 'coach'}
       >
         <CoachPage language={language} onLanguageChange={handleLanguageChange} />
