@@ -825,8 +825,8 @@ body {
   position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 252px;
-  max-height: 280px;
+  min-height: 228px;
+  max-height: 256px;
   border-radius: 26px;
   margin-bottom: 12px;
   box-shadow:
@@ -834,7 +834,7 @@ body {
     0 1px 4px rgba(126, 184, 154, 0.08);
   overflow: hidden;
   isolation: isolate;
-  background: #fffdf9;
+  background: #f7f4ea;
   border: 1px solid rgba(198, 218, 200, 0.75);
 }
 
@@ -847,15 +847,17 @@ body {
 .daily-progress-card__hero {
   position: relative;
   flex: 1 1 auto;
-  height: clamp(180px, 48vw, 200px);
-  min-height: 180px;
-  max-height: 200px;
-  background-color: #e8f2ea;
-  background-size: 108% 108%, cover;
-  background-position: center bottom, center bottom;
+  height: clamp(156px, 40vw, 168px);
+  min-height: 156px;
+  max-height: 168px;
+  background-color: #f3faef;
+  background-image:
+    url(/images/daily-hero-bg.png),
+    linear-gradient(180deg, #f3faef 0%, #eef8ec 55%, #e8f2ea 100%);
+  background-size: 118% auto, cover;
+  background-position: center 68%, center bottom;
   background-repeat: no-repeat, no-repeat;
   overflow: hidden;
-  border-radius: 26px 26px 0 0;
 }
 
 .daily-progress-card__hero-overlay {
@@ -889,7 +891,7 @@ body {
 
 .daily-progress-card__mascot {
   flex: 0 0 42%;
-  max-width: 160px;
+  max-width: 148px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -901,9 +903,9 @@ body {
 
 .daily-progress-card .mascot-avatar--hero {
   width: 100%;
-  height: clamp(140px, 40vw, 172px);
-  max-width: 156px;
-  max-height: clamp(140px, 40vw, 172px);
+  height: clamp(118px, 34vw, 144px);
+  max-width: 148px;
+  max-height: clamp(118px, 34vw, 144px);
   background: transparent;
   align-items: flex-end;
   justify-content: center;
@@ -914,8 +916,8 @@ body {
 .daily-progress-card .mascot-avatar--hero .mascot-avatar__image {
   width: 100%;
   height: 100%;
-  max-width: 156px;
-  max-height: clamp(140px, 40vw, 172px);
+  max-width: 148px;
+  max-height: clamp(118px, 34vw, 144px);
   object-fit: contain;
   object-position: center bottom;
   background: transparent;
@@ -930,8 +932,8 @@ body {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 14px 16px 14px 4px;
+  justify-content: flex-start;
+  padding: 8px 16px 10px 4px;
   background: transparent;
 }
 
@@ -1126,28 +1128,30 @@ body {
 
 @media (max-width: 380px) {
   .daily-progress-card {
-    min-height: 248px;
-    max-height: 272px;
+    min-height: 224px;
+    max-height: 248px;
   }
 
   .daily-progress-card__hero {
-    min-height: 172px;
-    max-height: 188px;
+    min-height: 148px;
+    max-height: 160px;
+    background-size: 122% auto, cover;
+    background-position: center 70%, center bottom;
   }
 
   .daily-progress-card__mascot {
     flex: 0 0 38%;
-    max-width: 132px;
+    max-width: 124px;
   }
 
   .daily-progress-card .mascot-avatar--hero,
   .daily-progress-card .mascot-avatar--hero .mascot-avatar__image {
-    max-width: 128px;
-    max-height: clamp(128px, 38vw, 152px);
+    max-width: 120px;
+    max-height: clamp(110px, 32vw, 132px);
   }
 
   .daily-progress-card__body {
-    padding: 12px 12px 12px 2px;
+    padding: 6px 12px 8px 2px;
   }
 
   .daily-progress-card__title {

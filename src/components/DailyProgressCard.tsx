@@ -3,8 +3,6 @@ import { MascotAvatar } from './MascotAvatar'
 import { getDailyProgressState } from '../utils/dailyProgressState'
 import { isValidMascotState, type MascotState } from '../utils/mascotState'
 
-const DAILY_HERO_GARDEN = '/images/daily-hero-bg.png'
-
 const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'] as const
 
 interface DailyProgressCardProps {
@@ -70,12 +68,7 @@ export function DailyProgressCard({
       className={`daily-progress-card daily-progress-card--${todayCompleted ? 'done' : 'pending'} daily-progress-card--${displayMascotState.mood}`}
       aria-label="今日任務"
     >
-      <div
-        className="daily-progress-card__hero"
-        style={{
-          backgroundImage: `url(${DAILY_HERO_GARDEN}), linear-gradient(180deg, #f5faf6 0%, #e8f2ea 52%, #dcebd4 100%)`,
-        }}
-      >
+      <div className="daily-progress-card__hero">
         <div className="daily-progress-card__hero-overlay" aria-hidden="true" />
 
         <div className="daily-progress-card__hero-inner">
