@@ -9,3 +9,16 @@ export const PRO_PRODUCT_ID_LIST: ProProductId[] = [
   PRO_PRODUCT_IDS.monthly,
   PRO_PRODUCT_IDS.yearly,
 ]
+
+/** Display fallback when StoreKit / IAP localized price is unavailable (e.g. web). */
+export const PRO_PRICE_FALLBACK = {
+  monthly: 'NT$60 / 月',
+  yearly: 'NT$590 / 年',
+  yearlySavingsLabel: '約省 NT$130',
+} as const
+
+export interface ProProductDisplayPrices {
+  monthly: string
+  yearly: string
+  yearlySavingsLabel: string
+}

@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  markMicrophoneDeniedForSession,
+  MICROPHONE_DENIED_MESSAGE,
+  requestMicrophoneForRecording,
+} from '../utils/microphonePermission'
 
 function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null {
   return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null
@@ -69,9 +74,13 @@ export function useSpeechRecognition({
       setIsListening(false)
       setInterimTranscript('')
 
+      if (event.error === 'not-allowed') {
+        markMicrophoneDeniedForSession()
+      }
+
       const message =
         event.error === 'not-allowed'
-          ? '麥克風權限被拒絕，請允許使用麥克風後再試。'
+          ? MICROPHONE_DENIED_MESSAGE
           : event.error === 'no-speech'
             ? '沒有聽到聲音，請再試一次。'
             : '語音辨識發生錯誤，請再試一次。'
@@ -106,9 +115,15 @@ export function useSpeechRecognition({
     }
   }, [lang])
 
-  const startListening = useCallback(() => {
+  const startListening = useCallback(async () => {
     const recognition = recognitionRef.current
     if (!recognition) {
+      return
+    }
+
+    const permission = await requestMicrophoneForRecording()
+    if (permission.state === 'denied') {
+      onErrorRef.current?.(permission.message ?? MICROPHONE_DENIED_MESSAGE)
       return
     }
 

@@ -6,6 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   ios: {
     contentInset: 'automatic',
+    // Native mic prompt copy lives in ios/App/App/Info.plist (NSMicrophoneUsageDescription).
   },
 }
 

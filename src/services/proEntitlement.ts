@@ -1,6 +1,6 @@
 import { Capacitor } from '@capacitor/core'
 import type { CoachPlan } from '../services/ai/types'
-import { PRO_PRODUCT_ID_LIST, PRO_PRODUCT_IDS, type ProProductId } from '../constants/proProducts'
+import { PRO_PRODUCT_ID_LIST, PRO_PRODUCT_IDS, PRO_PRICE_FALLBACK, type ProProductDisplayPrices, type ProProductId } from '../constants/proProducts'
 import { isAiCoachDebugMode } from '../utils/aiCoachDebugMode'
 
 const ENTITLEMENT_STORAGE_KEY = 'travel-speaking-coach-pro-entitlement'
@@ -239,6 +239,63 @@ export function purchaseMonthly(): Promise<PurchaseOutcome> {
 
 export function purchaseYearly(): Promise<PurchaseOutcome> {
   return purchaseProduct(PRO_PRODUCT_IDS.yearly)
+}
+
+function formatSubscriptionPrice(priceString: string, periodLabel: string): string {
+  const trimmed = priceString.trim()
+  if (!trimmed) {
+    return periodLabel === '月' ? PRO_PRICE_FALLBACK.monthly : PRO_PRICE_FALLBACK.yearly
+  }
+  if (trimmed.includes('/')) {
+    return trimmed
+  }
+  return `${trimmed} / ${periodLabel}`
+}
+
+function getFallbackProPrices(): ProProductDisplayPrices {
+  return {
+    monthly: PRO_PRICE_FALLBACK.monthly,
+    yearly: PRO_PRICE_FALLBACK.yearly,
+    yearlySavingsLabel: PRO_PRICE_FALLBACK.yearlySavingsLabel,
+  }
+}
+
+/** Prefer StoreKit localized prices; fall back to TW display prices on web. */
+export async function fetchProProductPrices(): Promise<ProProductDisplayPrices> {
+  if (!isNativePurchasesAvailable()) {
+    return getFallbackProPrices()
+  }
+
+  try {
+    const { NativePurchases, PURCHASE_TYPE } = await loadNativePurchasesModule()
+    const { products } = await NativePurchases.getProducts({
+      productIdentifiers: [...PRO_PRODUCT_ID_LIST],
+      productType: PURCHASE_TYPE.SUBS,
+    })
+
+    const monthlyProduct = products.find(
+      (product) =>
+        product.identifier === PRO_PRODUCT_IDS.monthly ||
+        product.planIdentifier === PRO_PRODUCT_IDS.monthly,
+    )
+    const yearlyProduct = products.find(
+      (product) =>
+        product.identifier === PRO_PRODUCT_IDS.yearly ||
+        product.planIdentifier === PRO_PRODUCT_IDS.yearly,
+    )
+
+    return {
+      monthly: monthlyProduct?.priceString
+        ? formatSubscriptionPrice(monthlyProduct.priceString, '月')
+        : PRO_PRICE_FALLBACK.monthly,
+      yearly: yearlyProduct?.priceString
+        ? formatSubscriptionPrice(yearlyProduct.priceString, '年')
+        : PRO_PRICE_FALLBACK.yearly,
+      yearlySavingsLabel: PRO_PRICE_FALLBACK.yearlySavingsLabel,
+    }
+  } catch {
+    return getFallbackProPrices()
+  }
 }
 
 export async function restorePurchases(): Promise<RestoreOutcome> {
