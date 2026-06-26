@@ -232,3 +232,48 @@ export function completeToday(
   const result = recordValidPracticeCompletion(language, options)
   return { streak: result.streak, isNewCompletion: result.isNewCompletion }
 }
+
+/** Developer-mode only: set streak without triggering milestone rewards. */
+export function applyDebugStreakCount(language: Language, count: number): void {
+  const today = getTodayDateKey()
+  const data = loadData(language)
+  const streak = Math.max(0, Math.floor(count))
+
+  let completedDates = data.completedDates.filter((date) => date !== today)
+  let lastCompletedDate = data.lastCompletedDate
+  let claimedMilestones: number[]
+
+  if (streak > 0) {
+    completedDates = [...new Set([...completedDates, today])]
+    lastCompletedDate = today
+    claimedMilestones = STREAK_MILESTONE_DAYS.filter((milestone) => milestone <= streak)
+  } else {
+    if (lastCompletedDate === today) {
+      lastCompletedDate = null
+    }
+    claimedMilestones = []
+  }
+
+  saveData(language, {
+    ...data,
+    streak,
+    lastCompletedDate,
+    completedDates,
+    claimedMilestones,
+  })
+}
+
+/** Developer-mode only: reset streak-related fields for the active language. */
+export function resetDebugStreakData(language: Language): void {
+  const today = getTodayDateKey()
+  const data = loadData(language)
+
+  saveData(language, {
+    ...data,
+    streak: 0,
+    lastCompletedDate: null,
+    streakFreezeCards: 0,
+    claimedMilestones: [],
+    completedDates: data.completedDates.filter((date) => date !== today),
+  })
+}

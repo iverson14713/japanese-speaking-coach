@@ -1,7 +1,7 @@
 const STORAGE_KEY = 'aiCoachDebugMode'
 
 export const AI_COACH_DEBUG_MAX_TURNS = 20
-export const TITLE_TAP_COUNT_REQUIRED = 5
+export const TITLE_TAP_COUNT_REQUIRED = 7
 export const TITLE_TAP_WINDOW_MS = 2500
 
 export function isAiCoachDebugMode(): boolean {
@@ -59,14 +59,13 @@ interface TitleTapState {
 export function registerTitleTapForDebug(
   state: TitleTapState,
   now: number = Date.now(),
-): { nextState: TitleTapState; activated: boolean } {
+): { nextState: TitleTapState; promptPassword: boolean } {
   const withinWindow = now - state.lastTapAt <= TITLE_TAP_WINDOW_MS
   const count = withinWindow ? state.count + 1 : 1
 
   if (count >= TITLE_TAP_COUNT_REQUIRED) {
-    enableAiCoachDebugMode()
-    return { nextState: { count: 0, lastTapAt: now }, activated: true }
+    return { nextState: { count: 0, lastTapAt: now }, promptPassword: true }
   }
 
-  return { nextState: { count, lastTapAt: now }, activated: false }
+  return { nextState: { count, lastTapAt: now }, promptPassword: false }
 }

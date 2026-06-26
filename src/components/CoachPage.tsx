@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 're
 import type { Language } from '../data/types'
 import { LANGUAGE_LABELS, SPEECH_LANG } from '../data/types'
 import {
-  COACH_AI_SOURCE_LABELS,
   COACH_CHAT_INPUT_PLACEHOLDERS,
   COACH_FREE_CHAT_WELCOME,
   COACH_LIMITS,
@@ -33,11 +32,14 @@ import {
 } from '../utils/coachUsageStorage'
 import {
   disableAiCoachDebugMode,
+  enableAiCoachDebugMode,
   isAiCoachDebugMode,
   registerTitleTapForDebug,
   syncAiCoachDebugFromUrl,
 } from '../utils/aiCoachDebugMode'
 import { CoachChatView } from './CoachChatView'
+import { DevModePasswordModal } from './DevModePasswordModal'
+import { DeveloperModePanel } from './DeveloperModePanel'
 import { LanguageSelector } from './LanguageSelector'
 import { useCoachAutoSpeak } from '../hooks/useCoachAutoSpeak'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
@@ -131,6 +133,8 @@ export function CoachPage({
   const [autoSpeakEnabled] = useState(true)
 
   const [debugMode, setDebugMode] = useState(() => isAiCoachDebugMode())
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false)
+  const [devPanelOpen, setDevPanelOpen] = useState(false)
   const [aiSource, setAiSource] = useState<CoachAiSource>(() => getCoachAiSource())
   const titleTapRef = useRef({ count: 0, lastTapAt: 0 })
   const inputRef = useRef<HTMLInputElement>(null)
@@ -475,19 +479,28 @@ export function CoachPage({
   }
 
   function handleTitleTap() {
-    const { nextState, activated } = registerTitleTapForDebug(titleTapRef.current)
+    const { nextState, promptPassword } = registerTitleTapForDebug(titleTapRef.current)
     titleTapRef.current = nextState
-    if (activated) {
-      setDebugMode(true)
-      setError(null)
-      refreshUsage()
+    if (promptPassword) {
+      setPasswordModalOpen(true)
     }
+  }
+
+  function handlePasswordSuccess() {
+    enableAiCoachDebugMode()
+    setDebugMode(true)
+    setPasswordModalOpen(false)
+    setDevPanelOpen(true)
+    setError(null)
+    refreshUsage()
   }
 
   function handleDisableDebugMode() {
     disableAiCoachDebugMode()
     setDebugProStatus(false)
     setDebugMode(false)
+    setDevPanelOpen(false)
+    setPasswordModalOpen(false)
     refreshUsage()
   }
 
@@ -1076,25 +1089,31 @@ export function CoachPage({
       </div>
 
       {debugMode ? (
-        <div className="coach-debug-bar" role="status">
-          <span className="coach-debug-badge">測試模式</span>
-          <span className="coach-debug-source">AI Source: {COACH_AI_SOURCE_LABELS[aiSource]}</span>
-          <span className="coach-debug-source">
-            自動朗讀：{autoSpeakEnabled ? '開' : '關'}
-          </span>
-          <span className="coach-debug-source">Pro：{isPro ? '開' : '關'}</span>
-          <button
-            type="button"
-            className="coach-debug-off"
-            onClick={() => setDebugProStatus(!isPro)}
-          >
-            {isPro ? '關閉測試 Pro' : '開啟測試 Pro'}
-          </button>
-          <button type="button" className="coach-debug-off" onClick={handleDisableDebugMode}>
-            關閉測試
-          </button>
-        </div>
+        <button
+          type="button"
+          className="coach-debug-chip"
+          onClick={() => setDevPanelOpen(true)}
+        >
+          測試模式 · 開發者設定
+        </button>
       ) : null}
+
+      <DevModePasswordModal
+        open={passwordModalOpen}
+        onClose={() => setPasswordModalOpen(false)}
+        onSuccess={handlePasswordSuccess}
+      />
+
+      <DeveloperModePanel
+        open={devPanelOpen}
+        language={language}
+        aiSource={aiSource}
+        autoSpeakEnabled={autoSpeakEnabled}
+        isPro={isPro}
+        onClose={() => setDevPanelOpen(false)}
+        onTogglePro={() => setDebugProStatus(!isPro)}
+        onDisableDebugMode={handleDisableDebugMode}
+      />
 
       <div className="coach-energy-card" role="status">
         <div className="coach-energy-card__content">
