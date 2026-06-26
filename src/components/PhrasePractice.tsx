@@ -5,12 +5,16 @@ import { SpeakButton } from './SpeakButton'
 interface PhrasePracticeProps {
   chunks: PhraseChunk[]
   language: Language
+  variant?: 'default' | 'guided'
 }
 
-export function PhrasePractice({ chunks, language }: PhrasePracticeProps) {
+export function PhrasePractice({ chunks, language, variant = 'default' }: PhrasePracticeProps) {
   return (
-    <section className="phrase-practice" aria-label="分段練習">
-      <h2 className="section-label">分段練習</h2>
+    <section
+      className={`phrase-practice${variant === 'guided' ? ' phrase-practice--guided' : ''}`}
+      aria-label="分段練習"
+    >
+      {variant === 'default' ? <h2 className="section-label">分段練習</h2> : null}
       <ul className="phrase-list">
         {chunks.map((chunk) => (
           <li key={chunk.text} className="phrase-row">

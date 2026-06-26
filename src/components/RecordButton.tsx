@@ -8,6 +8,7 @@ interface RecordButtonProps {
   errorMessage: string | null
   onPressStart: () => void
   onPressEnd: () => void
+  variant?: 'default' | 'guided'
 }
 
 export function RecordButton({
@@ -18,6 +19,7 @@ export function RecordButton({
   errorMessage,
   onPressStart,
   onPressEnd,
+  variant = 'default',
 }: RecordButtonProps) {
   const isRecording = state === 'recording'
   const isProcessing = state === 'processing'
@@ -29,9 +31,11 @@ export function RecordButton({
       ? '很好，已經很接近了！可以再聽一次，讓語氣更自然。'
       : '沒關係，初學者很正常。先按上面的喇叭聽一次，再跟著念。'
 
+  const isGuided = variant === 'guided'
+
   return (
-    <div className="record-section">
-      <h2 className="section-label">整句跟讀</h2>
+    <div className={`record-section${isGuided ? ' record-section--guided' : ''}`}>
+      {!isGuided ? <h2 className="section-label">整句跟讀</h2> : null}
 
       {!isSupported && (
         <p className="unsupported-message" role="alert">
@@ -41,7 +45,7 @@ export function RecordButton({
 
       <button
         type="button"
-        className={`record-button${isActive ? ' recording' : ''}`}
+        className={`record-button${isGuided ? ' record-button--guided' : ''}${isActive ? ' recording' : ''}`}
         disabled={!isSupported}
         onPointerDown={(e) => {
           if (!isSupported) {

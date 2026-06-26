@@ -9,12 +9,13 @@ import {
 } from '../utils/dailyPracticeStorage'
 import { LanguageSelector } from './LanguageSelector'
 import { SentenceCard } from './SentenceCard'
-import { PhrasePractice } from './PhrasePractice'
-import { RecordButton, type RecordState } from './RecordButton'
+import { GuidedPracticeFlow } from './GuidedPracticeFlow'
 import { WeeklyProgress } from './WeeklyProgress'
-import { StreakPetCard } from './StreakPetCard'
+import { TodayTaskCard } from './TodayTaskCard'
+import { AiPracticeEntry } from './AiPracticeEntry'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { matchesKeyword } from '../utils/evaluateSpeech'
+import type { RecordState } from './RecordButton'
 
 interface TodayPageProps {
   language: Language
@@ -113,15 +114,17 @@ export function TodayPage({ language, onLanguageChange }: TodayPageProps) {
 
       <LanguageSelector selected={language} onSelect={handleLanguageChange} />
 
-      <StreakPetCard todayCompleted={completedToday} streakCount={streak} />
+      <TodayTaskCard todayCompleted={completedToday} streakCount={streak} />
 
       <WeeklyProgress completedDates={completedDates} />
 
       <main className="app-main today-main">
         <SentenceCard sentence={dailySentence} language={language} mode="daily" />
-        <PhrasePractice chunks={dailySentence.phraseChunks} language={language} />
-        <RecordButton
-          state={recordState}
+
+        <GuidedPracticeFlow
+          sentence={dailySentence}
+          language={language}
+          recordState={recordState}
           transcript={transcript}
           isCorrect={isCorrect}
           isSupported={isSupported}
@@ -132,15 +135,23 @@ export function TodayPage({ language, onLanguageChange }: TodayPageProps) {
 
         <div className="today-complete-section">
           {completedToday ? (
-            <p className="today-complete-done" role="status">
-              今天完成了！連續練習 {streak} 天
-            </p>
+            <div className="today-complete-done" role="status">
+              <span className="today-complete-done__icon" aria-hidden="true">
+                ✓
+              </span>
+              <span className="today-complete-done__copy">
+                <strong>今日練習完成</strong>
+                連續練習 {streak} 天，明天也一起加油
+              </span>
+            </div>
           ) : (
             <button type="button" className="today-complete-button" onClick={handleCompleteToday}>
               完成今日練習
             </button>
           )}
         </div>
+
+        <AiPracticeEntry />
       </main>
     </>
   )
