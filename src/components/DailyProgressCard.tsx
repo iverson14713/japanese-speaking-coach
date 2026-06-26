@@ -3,7 +3,7 @@ import { MascotAvatar } from './MascotAvatar'
 import { getDailyProgressState } from '../utils/dailyProgressState'
 import { isValidMascotState, type MascotState } from '../utils/mascotState'
 
-const DAILY_HERO_GARDEN = '/images/daily-hero-garden.webp'
+const DAILY_HERO_GARDEN = '/images/daily-hero-bg.png'
 
 const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'] as const
 
@@ -80,23 +80,23 @@ export function DailyProgressCard({
         />
         <div className="daily-progress-card__hero-overlay" aria-hidden="true" />
 
-        <span
-          className={`daily-progress-card__badge daily-progress-card__badge--${todayCompleted ? 'done' : 'pending'}`}
-        >
-          <span className="daily-progress-card__badge-icon" aria-hidden="true">
-            {badgeIcon}
-          </span>
-          {badgeLabel}
-        </span>
-
         <div className="daily-progress-card__hero-inner">
           <div className="daily-progress-card__mascot">
             <MascotAvatar state={displayMascotState} className="mascot-avatar--hero" />
           </div>
 
           <div className="daily-progress-card__body">
-            <div className="daily-progress-card__text-mask" aria-hidden="true" />
-            <h2 className="daily-progress-card__title">今日任務</h2>
+            <div className="daily-progress-card__title-row">
+              <h2 className="daily-progress-card__title">今日任務</h2>
+              <span
+                className={`daily-progress-card__badge daily-progress-card__badge--${todayCompleted ? 'done' : 'pending'}`}
+              >
+                <span className="daily-progress-card__badge-icon" aria-hidden="true">
+                  {badgeIcon}
+                </span>
+                {badgeLabel}
+              </span>
+            </div>
             <p className="daily-progress-card__copy">{displayMessage}</p>
             <p className="daily-progress-card__hint">
               <span className="daily-progress-card__hint-icon-wrap" aria-hidden="true">
