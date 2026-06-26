@@ -130,7 +130,7 @@ export function CoachChatView({
                             {messageExtras.coachHelpResult.corrected}
                           </p>
                           <SpeakButton
-                            text={messageExtras.coachHelpResult.corrected}
+                            text={{ corrected: messageExtras.coachHelpResult.corrected }}
                             language={language}
                             label={`播放 ${messageExtras.coachHelpResult.corrected}`}
                             size="small"
@@ -179,7 +179,7 @@ export function CoachChatView({
                 <div className="coach-chat-text-row">
                   <p className="coach-chat-text">{msg.text}</p>
                   <SpeakButton
-                    text={msg.text}
+                    text={msg}
                     language={language}
                     label={`播放 ${msg.text}`}
                     size="small"

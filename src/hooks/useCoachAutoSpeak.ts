@@ -56,9 +56,9 @@ export function useCoachAutoSpeak({
     }
 
     lastSpokenIndexRef.current = targetIndex
-    const text = messages[targetIndex].text
+    const message = messages[targetIndex]
 
-    speakText(text, language, {
+    speakText(message, language, {
       silent: true,
       onStart: () => setIsSpeakingState(true),
       onEnd: () => setIsSpeakingState(false),

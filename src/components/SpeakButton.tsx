@@ -1,20 +1,24 @@
 import type { Language } from '../data/types'
 import { speakText } from '../utils/speechSynthesis'
+import type { SpeakableSource } from '../utils/getSpeakableText'
+import { getSpeakableText } from '../utils/getSpeakableText'
 
 interface SpeakButtonProps {
-  text: string
+  text: string | SpeakableSource
   language: Language
   label?: string
   size?: 'default' | 'small'
 }
 
 export function SpeakButton({ text, language, label, size = 'default' }: SpeakButtonProps) {
+  const speakable = getSpeakableText(text, language)
+
   return (
     <button
       type="button"
       className={`speak-button${size === 'small' ? ' speak-button--small' : ''}`}
       onClick={() => speakText(text, language)}
-      aria-label={label ?? `播放 ${text}`}
+      aria-label={label ?? `播放 ${speakable}`}
     >
       <svg
         viewBox="0 0 24 24"

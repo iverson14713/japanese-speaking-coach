@@ -1,5 +1,6 @@
 import type { Language } from '../data/types'
 import { SPEECH_LANG } from '../data/types'
+import { getSpeakableText, type SpeakableSource } from './getSpeakableText'
 import { showToast } from './toast'
 
 export interface SpeakOptions {
@@ -25,7 +26,11 @@ export function stopSpeaking(): void {
   currentUtterance = null
 }
 
-export function speakText(text: string, language: Language, options?: SpeakOptions): void {
+export function speakText(
+  source: string | SpeakableSource,
+  language: Language,
+  options?: SpeakOptions,
+): void {
   if (!window.speechSynthesis) {
     if (!options?.silent) {
       showToast('目前裝置不支援語音朗讀')
@@ -34,7 +39,7 @@ export function speakText(text: string, language: Language, options?: SpeakOptio
     return
   }
 
-  const trimmed = text.trim()
+  const trimmed = getSpeakableText(source, language).trim()
   if (!trimmed) {
     return
   }

@@ -26,7 +26,7 @@ export function SentenceCard({ sentence, language, mode = 'default' }: SentenceC
       <button
         type="button"
         className="listen-button"
-        onClick={() => speakText(sentence.targetText, language)}
+        onClick={() => speakText(sentence, language)}
         aria-label="先聽一次練習句"
       >
         🔊 先聽一次
