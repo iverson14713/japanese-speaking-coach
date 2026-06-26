@@ -68,7 +68,6 @@ export function DailyProgressCard({
       <div className="daily-progress-card__atmosphere" aria-hidden="true">
         <span className="daily-progress-card__cloud daily-progress-card__cloud--1" />
         <span className="daily-progress-card__cloud daily-progress-card__cloud--2" />
-        <span className="daily-progress-card__glow" />
       </div>
 
       <div className="daily-progress-card__main">
