@@ -70,14 +70,12 @@ export function DailyProgressCard({
       className={`daily-progress-card daily-progress-card--${todayCompleted ? 'done' : 'pending'} daily-progress-card--${displayMascotState.mood}`}
       aria-label="今日任務"
     >
-      <div className="daily-progress-card__hero">
-        <img
-          className="daily-progress-card__hero-bg"
-          src={DAILY_HERO_GARDEN}
-          alt=""
-          aria-hidden="true"
-          decoding="async"
-        />
+      <div
+        className="daily-progress-card__hero"
+        style={{
+          backgroundImage: `url(${DAILY_HERO_GARDEN}), linear-gradient(180deg, #f5faf6 0%, #e8f2ea 52%, #dcebd4 100%)`,
+        }}
+      >
         <div className="daily-progress-card__hero-overlay" aria-hidden="true" />
 
         <div className="daily-progress-card__hero-inner">
