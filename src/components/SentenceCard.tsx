@@ -18,7 +18,16 @@ export function SentenceCard({ sentence, language, mode = 'default' }: SentenceC
       className={`sentence-card${isDaily ? ' sentence-card--daily' : ''}`}
       aria-label="練習句子"
     >
-      <p className="sentence-label">{label}</p>
+      {isDaily ? (
+        <div className="sentence-card__header">
+          <span className="sentence-card__header-icon" aria-hidden="true">
+            💬
+          </span>
+          <h2 className="sentence-card__header-title">今日句子</h2>
+        </div>
+      ) : (
+        <p className="sentence-label">{label}</p>
+      )}
       <p className="sentence-target">{sentence.targetText}</p>
       {!isDaily && sentence.helperText ? <p className="sentence-helper">{sentence.helperText}</p> : null}
       {!isDaily && sentence.pronunciation !== sentence.targetText ? (
