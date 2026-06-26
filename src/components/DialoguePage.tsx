@@ -55,7 +55,7 @@ export function DialoguePage({ language, onLanguageChange, onSelectScenario }: D
           })}
         </ul>
 
-        <CrossPromoSection tab="dialogue" />
+        <CrossPromoSection />
       </main>
     </>
   )

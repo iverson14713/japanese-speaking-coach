@@ -6,6 +6,8 @@ export interface CrossPromoApp {
   appStoreUrl: string
 }
 
+export const CURRENT_APP_PROMO_ID = 'travel-coach'
+
 export const crossPromoApps: CrossPromoApp[] = [
   {
     id: 'lovequest',
@@ -45,5 +47,7 @@ export const crossPromoApps: CrossPromoApp[] = [
 ]
 
 export function getAvailableCrossPromoApps(): CrossPromoApp[] {
-  return crossPromoApps.filter((app) => app.appStoreUrl.trim().length > 0)
+  return crossPromoApps.filter(
+    (app) => app.id !== CURRENT_APP_PROMO_ID && app.appStoreUrl.trim().length > 0,
+  )
 }

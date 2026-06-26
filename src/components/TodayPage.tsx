@@ -170,7 +170,7 @@ export function TodayPage({
           onUpgrade={onOpenProUpgrade}
         />
 
-        <CrossPromoSection tab="today" />
+        <CrossPromoSection />
       </main>
     </div>
   )

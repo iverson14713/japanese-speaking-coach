@@ -25,6 +25,7 @@
   --font-sans: 'Hiragino Sans', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei',
     system-ui, -apple-system, sans-serif;
   --max-width: 390px;
+  --tabbar-height: 82px;
 }
 
 html {
@@ -78,18 +79,25 @@ body {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  padding: 0 20px calc(88px + env(safe-area-inset-bottom));
+  padding: 0 20px calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 24px);
   background: linear-gradient(180deg, #fdfbf8 0%, var(--color-bg) 36%);
-}
-
-.app--cross-promo {
-  padding-bottom: calc(198px + env(safe-area-inset-bottom));
 }
 
 .cross-promo-section {
   width: 100%;
   margin-top: 18px;
-  margin-bottom: 14px;
+  margin-bottom: 0;
+  animation: cross-promo-fade-in 0.22s ease;
+}
+
+@keyframes cross-promo-fade-in {
+  from {
+    opacity: 0.55;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .cross-promo-section__title {

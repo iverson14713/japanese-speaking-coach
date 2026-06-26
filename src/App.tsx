@@ -34,6 +34,7 @@ import {
   startCoachPracticeFromDaily,
 } from './utils/dailyCoachHandoffStorage'
 import type { DailyCoachHandoff } from './types/dailyCoachHandoff'
+import { CrossPromoProvider } from './context/CrossPromoContext'
 
 const SPLASH_DURATION_MS = 1200
 
@@ -160,60 +161,56 @@ function MainApp() {
     return <Onboarding onComplete={finishOnboarding} />
   }
 
-  const showsCrossPromo =
-    !isPro &&
-    (activeTab === 'today' ||
-      activeTab === 'library' ||
-      (activeTab === 'dialogue' && !dialogueCategory))
-
   return (
-    <div className={`app${showsCrossPromo ? ' app--cross-promo' : ''}`}>
-      <AppSettingsButton onClick={() => setSettingsOpen(true)} />
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+    <CrossPromoProvider activeTab={activeTab} dialogueCategory={dialogueCategory}>
+      <div className="app">
+        <AppSettingsButton onClick={() => setSettingsOpen(true)} />
+        <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
-      {activeTab === 'today' ? (
-        <TodayPage
-          language={language}
-          onLanguageChange={handleLanguageChange}
-          onStartDailyAiPractice={handleStartDailyAiPractice}
-          onOpenProUpgrade={() => openProUpgrade('coach-limit')}
-          canStartAiPractice={canStartAiPractice}
-          isPro={isPro}
-        />
-      ) : activeTab === 'library' ? (
-        <SentencePracticePage language={language} onLanguageChange={handleLanguageChange} />
-      ) : activeTab === 'dialogue' ? (
-        dialogueCategory ? (
-          <DialogueDetailPage
-            key={`${language}-${dialogueCategory}`}
-            language={language}
-            category={dialogueCategory}
-            onBack={handleDialogueBack}
-          />
-        ) : (
-          <DialoguePage
+        {activeTab === 'today' ? (
+          <TodayPage
             language={language}
             onLanguageChange={handleLanguageChange}
-            onSelectScenario={setDialogueCategory}
+            onStartDailyAiPractice={handleStartDailyAiPractice}
+            onOpenProUpgrade={() => openProUpgrade('coach-limit')}
+            canStartAiPractice={canStartAiPractice}
+            isPro={isPro}
           />
-        )
-      ) : null}
+        ) : activeTab === 'library' ? (
+          <SentencePracticePage language={language} onLanguageChange={handleLanguageChange} />
+        ) : activeTab === 'dialogue' ? (
+          dialogueCategory ? (
+            <DialogueDetailPage
+              key={`${language}-${dialogueCategory}`}
+              language={language}
+              category={dialogueCategory}
+              onBack={handleDialogueBack}
+            />
+          ) : (
+            <DialoguePage
+              language={language}
+              onLanguageChange={handleLanguageChange}
+              onSelectScenario={setDialogueCategory}
+            />
+          )
+        ) : null}
 
-      <div
-        className="coach-tab-root"
-        hidden={activeTab !== 'coach'}
-        aria-hidden={activeTab !== 'coach'}
-      >
-        <CoachPage
-          language={language}
-          onLanguageChange={handleLanguageChange}
-          dailyHandoff={dailyHandoff}
-          onDailyHandoffConsumed={handleDailyHandoffConsumed}
-        />
+        <div
+          className="coach-tab-root"
+          hidden={activeTab !== 'coach'}
+          aria-hidden={activeTab !== 'coach'}
+        >
+          <CoachPage
+            language={language}
+            onLanguageChange={handleLanguageChange}
+            dailyHandoff={dailyHandoff}
+            onDailyHandoffConsumed={handleDailyHandoffConsumed}
+          />
+        </div>
+
+        <BottomTabBar activeTab={activeTab} onTabChange={handleTabChange} />
       </div>
-
-      <BottomTabBar activeTab={activeTab} onTabChange={handleTabChange} />
-    </div>
+    </CrossPromoProvider>
   )
 }
 

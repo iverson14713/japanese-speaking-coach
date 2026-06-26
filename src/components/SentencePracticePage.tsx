@@ -190,7 +190,7 @@ export function SentencePracticePage({
         </div>
       </footer>
 
-      <CrossPromoSection tab="library" />
+      <CrossPromoSection />
     </>
   )
 }

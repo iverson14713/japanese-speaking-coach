@@ -1,19 +1,14 @@
-import { useMemo } from 'react'
 import { useProEntitlement } from '../hooks/useProEntitlement'
-import { pickCrossPromoApp, type CrossPromoTab } from '../utils/crossPromoSelection'
+import { useCrossPromo } from '../context/CrossPromoContext'
 import { CrossPromoCard } from './CrossPromoCard'
 
-interface CrossPromoSectionProps {
-  tab: CrossPromoTab
-}
-
-export function CrossPromoSection({ tab }: CrossPromoSectionProps) {
+export function CrossPromoSection() {
   const { isPro } = useProEntitlement()
-  const app = useMemo(() => pickCrossPromoApp(tab), [tab])
+  const { currentApp } = useCrossPromo()
 
-  if (isPro || !app) {
+  if (isPro || !currentApp) {
     return null
   }
 
-  return <CrossPromoCard app={app} />
+  return <CrossPromoCard key={currentApp.id} app={currentApp} />
 }
