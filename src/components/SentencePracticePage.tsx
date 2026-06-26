@@ -12,6 +12,7 @@ import { LanguageSelector } from './LanguageSelector'
 import { CategorySelector } from './CategorySelector'
 import { SentenceCard } from './SentenceCard'
 import { WordBreakdown } from './WordBreakdown'
+import { CrossPromoSection } from './CrossPromoSection'
 import { PhrasePractice } from './PhrasePractice'
 import { RecordButton, type RecordState } from './RecordButton'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
@@ -188,6 +189,8 @@ export function SentencePracticePage({
           </button>
         </div>
       </footer>
+
+      <CrossPromoSection tab="library" />
     </>
   )
 }

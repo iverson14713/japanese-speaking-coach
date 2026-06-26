@@ -160,8 +160,14 @@ function MainApp() {
     return <Onboarding onComplete={finishOnboarding} />
   }
 
+  const showsCrossPromo =
+    !isPro &&
+    (activeTab === 'today' ||
+      activeTab === 'library' ||
+      (activeTab === 'dialogue' && !dialogueCategory))
+
   return (
-    <div className="app">
+    <div className={`app${showsCrossPromo ? ' app--cross-promo' : ''}`}>
       <AppSettingsButton onClick={() => setSettingsOpen(true)} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 

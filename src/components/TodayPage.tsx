@@ -14,6 +14,7 @@ import { SentenceCard } from './SentenceCard'
 import { GuidedPracticeFlow } from './GuidedPracticeFlow'
 import { DailyProgressCard } from './DailyProgressCard'
 import { AiPracticeEntry } from './AiPracticeEntry'
+import { CrossPromoSection } from './CrossPromoSection'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { matchesKeyword } from '../utils/evaluateSpeech'
 import type { RecordState } from './RecordButton'
@@ -168,6 +169,8 @@ export function TodayPage({
           onStart={() => onStartDailyAiPractice(dailySentence)}
           onUpgrade={onOpenProUpgrade}
         />
+
+        <CrossPromoSection tab="today" />
       </main>
     </div>
   )

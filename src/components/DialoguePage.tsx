@@ -5,6 +5,7 @@ import {
   type DialogueCategoryId,
 } from '../data/dialogues'
 import { LanguageSelector } from './LanguageSelector'
+import { CrossPromoSection } from './CrossPromoSection'
 
 interface DialoguePageProps {
   language: Language
@@ -53,6 +54,8 @@ export function DialoguePage({ language, onLanguageChange, onSelectScenario }: D
             )
           })}
         </ul>
+
+        <CrossPromoSection tab="dialogue" />
       </main>
     </>
   )

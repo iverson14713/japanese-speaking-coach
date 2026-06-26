@@ -9,6 +9,7 @@ const FEATURES = [
   '自由聊天與情境練習都能用',
   '不會說時可用中文問教練',
   '句庫收藏不限',
+  '移除 App 推薦',
 ] as const
 
 interface ProUpgradeModalProps {
@@ -77,8 +78,11 @@ export function ProUpgradeModal({ open, reason, onClose }: ProUpgradeModalProps)
     }
   }
 
-  const title = reason === 'coach-limit' ? '今天 AI 練習次數用完了' : '升級 Pro'
-  const subtitle = '升級 Pro，讓 AI 教練每天陪你多練幾回。'
+  const title = reason === 'coach-limit' ? '今天 AI 練習次數用完了' : '升級 Pro，移除 App 推薦'
+  const subtitle =
+    reason === 'coach-limit'
+      ? '升級 Pro，讓 AI 教練每天陪你多練幾回。'
+      : '享受更乾淨的練習畫面，並解鎖更多 AI 練習功能'
 
   return (
     <div className="pro-modal" role="presentation" onClick={onClose}>
