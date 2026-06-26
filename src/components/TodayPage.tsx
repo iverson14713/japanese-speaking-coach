@@ -12,8 +12,7 @@ import {
 import { LanguageSelector } from './LanguageSelector'
 import { SentenceCard } from './SentenceCard'
 import { GuidedPracticeFlow } from './GuidedPracticeFlow'
-import { WeeklyProgress } from './WeeklyProgress'
-import { TodayTaskCard } from './TodayTaskCard'
+import { DailyProgressCard } from './DailyProgressCard'
 import { AiPracticeEntry } from './AiPracticeEntry'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { matchesKeyword } from '../utils/evaluateSpeech'
@@ -136,13 +135,12 @@ export function TodayPage({
 
       <LanguageSelector selected={language} onSelect={handleLanguageChange} />
 
-      <TodayTaskCard
+      <DailyProgressCard
         todayCompleted={completedToday}
         streakCount={streak}
         lastPracticeDate={lastPracticeDate}
+        completedDates={completedDates}
       />
-
-      <WeeklyProgress completedDates={completedDates} streakCount={streak} />
 
       <main className="app-main today-main">
         <SentenceCard sentence={dailySentence} language={language} mode="daily" />

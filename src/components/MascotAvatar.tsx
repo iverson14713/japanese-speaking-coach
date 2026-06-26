@@ -1,42 +1,77 @@
-import { useEffect, useState } from 'react'
-import type { MascotState } from '../utils/mascotState'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import {
+  DEFAULT_MASCOT_IMAGE_URL,
+  getMascotImageUrl,
+  type MascotState,
+} from '../utils/mascotState'
 
 interface MascotAvatarProps {
   state: MascotState
+  className?: string
 }
 
-type ImageStatus = 'loading' | 'loaded' | 'error'
+function resolveImageUrl(state: MascotState): string {
+  const fromImageField = getMascotImageUrl(state.image)
+  const url = state.imageUrl || fromImageField
+  if (!url || typeof url !== 'string' || url.includes('undefined') || url.includes('[object')) {
+    return DEFAULT_MASCOT_IMAGE_URL
+  }
+  return url
+}
 
-export function MascotAvatar({ state }: MascotAvatarProps) {
-  const [imageStatus, setImageStatus] = useState<ImageStatus>('loading')
+function isImageReady(img: HTMLImageElement | null): boolean {
+  return Boolean(img && img.complete && img.naturalWidth > 0)
+}
+
+export function MascotAvatar({ state, className }: MascotAvatarProps) {
+  const imgRef = useRef<HTMLImageElement>(null)
+  const [src, setSrc] = useState(() => resolveImageUrl(state))
+  const [showEmoji, setShowEmoji] = useState(false)
 
   useEffect(() => {
-    setImageStatus('loading')
-  }, [state.imageUrl])
+    setSrc(resolveImageUrl(state))
+    setShowEmoji(false)
+  }, [state.image, state.imageUrl])
 
-  const showFallback = imageStatus === 'error'
+  useLayoutEffect(() => {
+    if (isImageReady(imgRef.current)) {
+      setShowEmoji(false)
+    }
+  }, [src])
+
+  const handleError = () => {
+    const fallbackSrc = DEFAULT_MASCOT_IMAGE_URL
+    if (src !== fallbackSrc) {
+      setSrc(fallbackSrc)
+      setShowEmoji(false)
+      return
+    }
+    setShowEmoji(true)
+  }
+
+  const handleLoad = () => {
+    setShowEmoji(false)
+  }
 
   return (
-    <div className={`mascot-avatar mascot-avatar--${state.mood}`}>
-      {!showFallback ? (
-        <img
-          key={state.imageUrl}
-          src={state.imageUrl}
-          alt="今日練習狗狗夥伴"
-          className={`mascot-avatar__image${imageStatus === 'loaded' ? ' mascot-avatar__image--loaded' : ''}`}
-          width={72}
-          height={72}
-          decoding="async"
-          fetchPriority="high"
-          onLoad={() => setImageStatus('loaded')}
-          onError={() => setImageStatus('error')}
-        />
-      ) : null}
-      {showFallback ? (
+    <div className={`mascot-avatar mascot-avatar--${state.mood}${className ? ` ${className}` : ''}`}>
+      {showEmoji ? (
         <span className="mascot-avatar__emoji" role="img" aria-label="今日練習狗狗夥伴">
           {state.emoji}
         </span>
-      ) : null}
+      ) : (
+        <img
+          ref={imgRef}
+          src={src}
+          alt="今日練習狗狗夥伴"
+          className="mascot-avatar__image"
+          width={72}
+          height={72}
+          decoding="async"
+          onLoad={handleLoad}
+          onError={handleError}
+        />
+      )}
     </div>
   )
 }

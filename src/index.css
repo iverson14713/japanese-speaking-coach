@@ -790,32 +790,347 @@ body {
   line-height: 1.4;
 }
 
-.today-task-card {
+.daily-progress-card {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 110px;
-  max-height: 140px;
-  padding: 12px 14px;
-  border-radius: var(--radius-md);
-  margin-bottom: 8px;
-  box-shadow: var(--shadow-soft);
+  flex-direction: column;
+  gap: 6px;
+  min-height: 116px;
+  max-height: 128px;
+  padding: 8px 12px 7px;
+  border-radius: 18px;
+  margin-bottom: 10px;
+  box-shadow:
+    0 2px 10px rgba(61, 58, 54, 0.06),
+    0 1px 3px rgba(126, 184, 154, 0.08);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.daily-progress-card--pending {
+  background: linear-gradient(
+    128deg,
+    #fdfbf7 0%,
+    #f6faf3 42%,
+    #eef6f0 72%,
+    #e8f2ea 100%
+  );
+  border: 1px solid rgba(200, 220, 205, 0.85);
+}
+
+.daily-progress-card--done {
+  background: linear-gradient(
+    128deg,
+    #fbfdf9 0%,
+    #f0f9f3 40%,
+    #e6f4ec 70%,
+    #dff0e8 100%
+  );
+  border: 1px solid rgba(168, 210, 185, 0.9);
+}
+
+.daily-progress-card__atmosphere {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.daily-progress-card__cloud {
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  filter: blur(0.5px);
+}
+
+.daily-progress-card__cloud--1 {
+  top: 10px;
+  right: 18%;
+  width: 34px;
+  height: 12px;
+  box-shadow:
+    -14px 2px 0 -2px rgba(255, 255, 255, 0.45),
+    12px 1px 0 -3px rgba(255, 255, 255, 0.4);
+}
+
+.daily-progress-card__cloud--2 {
+  top: 18px;
+  right: 8%;
+  width: 22px;
+  height: 8px;
+  opacity: 0.7;
+}
+
+.daily-progress-card__glow {
+  position: absolute;
+  top: -18px;
+  left: 6%;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 248, 230, 0.55) 0%, transparent 68%);
+}
+
+.daily-progress-card__main {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+}
+
+.daily-progress-card__scene {
+  position: relative;
+  flex-shrink: 0;
+  width: 102px;
+  height: 92px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 252, 246, 0.9) 0%,
+    rgba(232, 245, 234, 0.95) 48%,
+    rgba(214, 235, 205, 0.98) 100%
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.daily-progress-card__scene-ground {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.daily-progress-card__scene-ground::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 28px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(168, 205, 148, 0.22) 55%,
+    rgba(148, 190, 128, 0.32) 100%
+  );
+  border-radius: 0 0 16px 16px;
+}
+
+.daily-progress-card__petal {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.daily-progress-card__petal--1 {
+  left: 10px;
+  bottom: 14px;
+  width: 6px;
+  height: 6px;
+  background: #f2b8c6;
+  box-shadow: 8px -6px 0 -1px #f5d0a8;
+}
+
+.daily-progress-card__petal--2 {
+  right: 12px;
+  bottom: 18px;
+  width: 5px;
+  height: 5px;
+  background: #f8d4a0;
+}
+
+.daily-progress-card__petal--3 {
+  left: 42%;
+  bottom: 10px;
+  width: 4px;
+  height: 4px;
+  background: #c8e0b0;
+}
+
+.daily-progress-card .mascot-avatar--scene {
+  position: relative;
+  z-index: 1;
+  width: 92px;
+  height: 92px;
+  margin-bottom: -2px;
+}
+
+.daily-progress-card .mascot-avatar--scene .mascot-avatar__image {
+  width: 92px;
+  height: 92px;
+  object-fit: contain;
+  object-position: center bottom;
+  filter: drop-shadow(0 3px 6px rgba(72, 98, 78, 0.14));
+}
+
+.daily-progress-card .mascot-avatar--scene .mascot-avatar__emoji {
+  font-size: 3rem;
+}
+
+.daily-progress-card__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2px 0 4px;
+}
+
+.daily-progress-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.daily-progress-card__title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+}
+
+.daily-progress-card__badge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.daily-progress-card__badge--pending {
+  color: #9a7b68;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(210, 195, 180, 0.55);
+}
+
+.daily-progress-card__badge--done {
+  color: #4f8f6e;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(168, 210, 185, 0.65);
+}
+
+.daily-progress-card__copy {
+  font-size: 0.74rem;
+  color: var(--color-text-secondary);
+  line-height: 1.38;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.today-task-card--pending {
-  background: #ffffff;
-  border: 1px solid var(--color-border);
+.daily-progress-card__hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 0.66rem;
+  font-weight: 500;
+  color: rgba(138, 132, 124, 0.92);
+  line-height: 1.3;
 }
 
-.today-task-card--done {
-  background: linear-gradient(135deg, #f8fcf9 0%, var(--color-accent-light) 100%);
-  border: 1px solid #c8e6d4;
+.daily-progress-card--done .daily-progress-card__hint {
+  color: #5d9a7a;
+  font-weight: 600;
 }
 
-.today-task-card__body {
+.daily-progress-card__hint-icon {
+  font-size: 0.72rem;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+.daily-progress-card__week {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(139, 119, 101, 0.1);
+}
+
+.daily-progress-card--done .daily-progress-card__week {
+  border-top-color: rgba(107, 155, 122, 0.18);
+}
+
+.daily-progress-card__week-label {
+  flex-shrink: 0;
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.02em;
+  opacity: 0.82;
+}
+
+.daily-progress-card__week-dots {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   min-width: 0;
+}
+
+.daily-progress-card__week-streak {
+  flex-shrink: 0;
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+.daily-progress-card--done .daily-progress-card__week-streak {
+  color: var(--color-accent);
+  opacity: 0.92;
+}
+
+.daily-progress-card__week .weekly-dot {
+  width: 7px;
+  height: 7px;
+}
+
+@media (max-width: 380px) {
+  .daily-progress-card {
+    padding: 8px 10px 7px;
+  }
+
+  .daily-progress-card__scene {
+    width: 92px;
+    height: 86px;
+  }
+
+  .daily-progress-card .mascot-avatar--scene,
+  .daily-progress-card .mascot-avatar--scene .mascot-avatar__image {
+    width: 84px;
+    height: 84px;
+  }
+
+  .daily-progress-card__main {
+    gap: 8px;
+  }
+
+  .daily-progress-card__title {
+    font-size: 0.82rem;
+  }
+
+  .daily-progress-card__copy {
+    font-size: 0.7rem;
+  }
 }
 
 .mascot-avatar {
@@ -833,12 +1148,6 @@ body {
   object-fit: contain;
   object-position: center bottom;
   display: block;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.mascot-avatar__image--loaded {
-  opacity: 1;
 }
 
 .mascot-avatar__emoji {
@@ -858,61 +1167,6 @@ body {
   filter: saturate(0.82);
 }
 
-.today-task-card__title {
-  font-size: 0.84rem;
-  font-weight: 700;
-  color: var(--color-text);
-  margin-bottom: 2px;
-  line-height: 1.3;
-}
-
-.today-task-card__copy {
-  font-size: 0.74rem;
-  color: var(--color-text-secondary);
-  line-height: 1.4;
-}
-
-.today-task-card__streak {
-  margin-top: 4px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--color-primary-dark);
-  line-height: 1.3;
-}
-
-.weekly-progress--compact {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  max-height: 48px;
-  margin-bottom: 10px;
-  padding: 0 12px;
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-}
-
-.weekly-progress--compact .weekly-progress-label {
-  flex-shrink: 0;
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  letter-spacing: 0.02em;
-  margin-bottom: 0;
-  text-align: left;
-}
-
-.weekly-progress--compact .weekly-progress-dots {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0;
-  min-width: 0;
-}
-
 .weekly-dot {
   width: 9px;
   height: 9px;
@@ -929,19 +1183,6 @@ body {
 
 .weekly-dot--today {
   box-shadow: 0 0 0 2px var(--color-primary-light);
-}
-
-.weekly-progress--compact .weekly-dot {
-  width: 9px;
-  height: 9px;
-}
-
-.weekly-progress-streak {
-  flex-shrink: 0;
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: var(--color-accent);
-  white-space: nowrap;
 }
 
 .today-main {
