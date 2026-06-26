@@ -77,7 +77,7 @@ export function ProUpgradeModal({ open, reason, onClose }: ProUpgradeModalProps)
     }
   }
 
-  const title = reason === 'coach-limit' ? '今天練習次數用完了' : '升級 Pro'
+  const title = reason === 'coach-limit' ? '今天 AI 練習次數用完了' : '升級 Pro'
   const subtitle = '升級 Pro，讓 AI 教練每天陪你多練幾回。'
 
   return (

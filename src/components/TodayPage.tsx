@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { Sentence } from '../data/sentences'
 import { SPEECH_LANG, type Language } from '../data/sentences'
 import { getDailySentence } from '../utils/dailySentence'
 import {
@@ -16,13 +17,25 @@ import { AiPracticeEntry } from './AiPracticeEntry'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { matchesKeyword } from '../utils/evaluateSpeech'
 import type { RecordState } from './RecordButton'
+import { isDailyAiPracticeComplete } from '../utils/dailyAiPracticeCompletion'
 
 interface TodayPageProps {
   language: Language
   onLanguageChange: (language: Language) => void
+  onStartDailyAiPractice: (sentence: Sentence) => void
+  onOpenProUpgrade: () => void
+  canStartAiPractice: boolean
+  isPro: boolean
 }
 
-export function TodayPage({ language, onLanguageChange }: TodayPageProps) {
+export function TodayPage({
+  language,
+  onLanguageChange,
+  onStartDailyAiPractice,
+  onOpenProUpgrade,
+  canStartAiPractice,
+  isPro,
+}: TodayPageProps) {
   const [recordState, setRecordState] = useState<RecordState>('idle')
   const [transcript, setTranscript] = useState('')
   const [isCorrect, setIsCorrect] = useState(false)
@@ -30,6 +43,7 @@ export function TodayPage({ language, onLanguageChange }: TodayPageProps) {
   const [completedToday, setCompletedToday] = useState(() => isTodayCompleted(language))
   const [streak, setStreak] = useState(() => getStreak(language))
   const [completedDates, setCompletedDates] = useState(() => getCompletedDates(language))
+  const [aiPracticeCompleted, setAiPracticeCompleted] = useState(false)
 
   const dailySentence = useMemo(() => getDailySentence(language), [language])
 
@@ -45,7 +59,10 @@ export function TodayPage({ language, onLanguageChange }: TodayPageProps) {
     setStreak(getStreak(language))
     setCompletedDates(getCompletedDates(language))
     resetFeedback()
-  }, [language, resetFeedback])
+    if (dailySentence) {
+      setAiPracticeCompleted(isDailyAiPracticeComplete(language, dailySentence.id))
+    }
+  }, [language, resetFeedback, dailySentence])
 
   const handleRecognitionResult = useCallback(
     (text: string) => {
@@ -121,6 +138,14 @@ export function TodayPage({ language, onLanguageChange }: TodayPageProps) {
       <main className="app-main today-main">
         <SentenceCard sentence={dailySentence} language={language} mode="daily" />
 
+        <AiPracticeEntry
+          completed={aiPracticeCompleted}
+          canStart={canStartAiPractice}
+          isPro={isPro}
+          onStart={() => onStartDailyAiPractice(dailySentence)}
+          onUpgrade={onOpenProUpgrade}
+        />
+
         <GuidedPracticeFlow
           sentence={dailySentence}
           language={language}
@@ -135,8 +160,6 @@ export function TodayPage({ language, onLanguageChange }: TodayPageProps) {
           onPressEnd={handlePressEnd}
           onCompleteToday={handleCompleteToday}
         />
-
-        <AiPracticeEntry />
       </main>
     </div>
   )

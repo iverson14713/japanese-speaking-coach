@@ -1,4 +1,5 @@
 import type { Language } from '../../data/types'
+import type { DailyCoachHandoff } from '../../types/dailyCoachHandoff'
 import type {
   ChatHint,
   ChatMessage,
@@ -853,6 +854,37 @@ async function withCoachApi<T>(
     }
     throw error instanceof CoachApiError ? error : new CoachApiError('Coach API request failed')
   }
+}
+
+export async function startDailyPracticeScenario(
+  handoff: DailyCoachHandoff,
+): Promise<CustomScenarioResult> {
+  return withCoachApi(
+    'custom-scenario',
+    { language: handoff.language, scenario: handoff.scenarioPrompt },
+    async () => {
+      await delay(600)
+
+      return {
+        scenarioTitle: handoff.scenarioTitle,
+        roleLabelZh: handoff.roleLabelZh,
+        goalZh: handoff.goalZh,
+        introZh: `好，我會扮演${handoff.roleLabelZh}，陪你用今天這句實戰練習。`,
+        openingLine: handoff.openingLine,
+        openingMeaningZh: handoff.openingMeaningZh,
+        openingPronunciation: handoff.openingPronunciation,
+        hints: [
+          {
+            text: handoff.targetText,
+            meaningZh: handoff.meaningZh,
+            pronunciation:
+              handoff.pronunciation !== handoff.targetText ? handoff.pronunciation : undefined,
+          },
+          ...CUSTOM_HINTS[handoff.language].slice(0, 2),
+        ],
+      }
+    },
+  )
 }
 
 export async function startCustomScenario(

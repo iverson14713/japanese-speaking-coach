@@ -33,6 +33,7 @@ export {
   inferUserRoleLabel,
   isCoachMockMode,
   startCustomScenario,
+  startDailyPracticeScenario,
   startTopicChat,
   suggestTopic,
   suggestUserReply,

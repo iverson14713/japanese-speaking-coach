@@ -22,6 +22,7 @@ import {
   getCoachLastApiError,
   isCoachMockMode,
   startCustomScenario,
+  startDailyPracticeScenario,
   startTopicChat,
 } from '../services/ai'
 import {
@@ -55,10 +56,19 @@ import {
   saveCoachLearningSummary,
   takeRecentHistoryForApi,
 } from '../utils/aiCoachChatStorage'
+import { buildDailyScenarioKey } from '../utils/buildDailyCoachHandoff'
+import {
+  isDailyAiPracticeComplete,
+  markDailyAiPracticeComplete,
+} from '../utils/dailyAiPracticeCompletion'
+import { clearDailyCoachHandoff } from '../utils/dailyCoachHandoffStorage'
+import type { DailyCoachHandoff } from '../types/dailyCoachHandoff'
 
 interface CoachPageProps {
   language: Language
   onLanguageChange: (language: Language) => void
+  dailyHandoff: DailyCoachHandoff | null
+  onDailyHandoffConsumed: () => void
 }
 
 type CoachPhase = 'welcome' | 'active' | 'ended'
@@ -82,7 +92,12 @@ function formatAiConnectionError(debugMode: boolean): string {
   return detail ? `AI 連線失敗：${detail}` : 'AI 連線失敗，請稍後再試'
 }
 
-export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
+export function CoachPage({
+  language,
+  onLanguageChange,
+  dailyHandoff,
+  onDailyHandoffConsumed,
+}: CoachPageProps) {
   const { openProUpgrade } = useProUpgrade()
   const { coachPlan, isPro, setDebugProStatus } = useProEntitlement()
   const plan = coachPlan
@@ -124,6 +139,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   const prevModeRef = useRef<CoachPracticeMode>(initialCoach.practiceMode)
   const skipNextSaveRef = useRef(true)
   const shouldAutoScrollRef = useRef(true)
+  const dailyHandoffKeyRef = useRef<string | null>(null)
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior) => {
     const el = chatShellRef.current
@@ -493,6 +509,86 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
     return undefined
   }
 
+  async function beginDailyPracticeScenario(handoff: DailyCoachHandoff) {
+    setLoading(true)
+    setError(null)
+    shouldAutoScrollRef.current = true
+
+    persistCoachChat({ mode: practiceMode })
+    clearCoachChatSnapshotForMode(handoff.language, 'scenario-practice')
+    saveCoachPracticeModePreference(handoff.language, 'scenario-practice')
+    stopCoachSpeech()
+    resetAutoSpeak()
+    prevModeRef.current = 'scenario-practice'
+    skipNextSaveRef.current = true
+    setPracticeMode('scenario-practice')
+
+    try {
+      const result = await startDailyPracticeScenario(handoff)
+
+      if (!handoff.sessionAlreadyConsumed && !isAiCoachDebugMode()) {
+        consumeCoachSession(handoff.language)
+        refreshUsage()
+      }
+
+      const info: ChatSessionInfo = {
+        scenarioTitle: result.scenarioTitle,
+        roleLabelZh: result.roleLabelZh,
+        goalZh: result.goalZh,
+      }
+
+      setChatMode('custom')
+      setScenarioKey(buildDailyScenarioKey(handoff.sentenceId))
+      setSessionInfo(info)
+      setCustomHints(result.hints)
+      setPhase('active')
+      setUserTurns(0)
+      setInput('')
+      setAwaitingCustomInput(false)
+      setTopicSession(null)
+
+      const nextMessages: ChatMessage[] = [
+        {
+          role: 'user',
+          text: `今日實戰：${handoff.scenarioTitle}`,
+          createdAt: Date.now(),
+          mode: 'scenario-practice',
+        },
+        {
+          role: 'assistant',
+          text: buildScenarioMetaText(info),
+          variant: 'scenario-meta',
+          mode: 'scenario-practice',
+        },
+        {
+          role: 'assistant',
+          text: result.openingLine,
+          meaningZh: result.openingMeaningZh,
+          pronunciation: result.openingPronunciation,
+          variant: 'dialogue',
+          hint: result.hints[0],
+          createdAt: Date.now(),
+          mode: 'scenario-practice',
+        },
+      ]
+
+      setMessages(nextMessages)
+      markExistingAsSpoken(nextMessages)
+      queueScrollToBottom('smooth')
+    } catch {
+      setError(formatAiConnectionError(debugMode))
+      setMessages(createWelcomeMessages('scenario-practice', handoff.language))
+      setPhase('welcome')
+      setChatMode(null)
+      setSessionInfo(null)
+      setScenarioKey('')
+    } finally {
+      setLoading(false)
+      refreshAiSource()
+      skipNextSaveRef.current = false
+    }
+  }
+
   async function beginCustomScenario(scenario: string) {
     if (!requireSession()) {
       return
@@ -598,6 +694,38 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
       refreshAiSource()
     }
   }
+
+  useEffect(() => {
+    if (!dailyHandoff || dailyHandoff.language !== language) {
+      return
+    }
+
+    const handoffKey = `${dailyHandoff.language}:${dailyHandoff.sentenceId}:${dailyHandoff.createdAt}`
+    if (dailyHandoffKeyRef.current === handoffKey) {
+      return
+    }
+    dailyHandoffKeyRef.current = handoffKey
+
+    void beginDailyPracticeScenario(dailyHandoff)
+    clearDailyCoachHandoff()
+    onDailyHandoffConsumed()
+  }, [dailyHandoff, language, onDailyHandoffConsumed])
+
+  useEffect(() => {
+    if (phase !== 'ended' || !scenarioKey.startsWith('daily:')) {
+      return
+    }
+
+    const sentenceId = Number(scenarioKey.replace('daily:', ''))
+    if (!Number.isFinite(sentenceId)) {
+      return
+    }
+
+    if (!isDailyAiPracticeComplete(language, sentenceId)) {
+      markDailyAiPracticeComplete(language, sentenceId)
+      showToast('AI 實戰完成')
+    }
+  }, [phase, scenarioKey, language])
 
   async function handleFreeChatSend(text: string) {
     const scenarioRequest = detectScenarioStartRequest(text)
