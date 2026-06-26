@@ -886,12 +886,15 @@ body {
   z-index: 2;
   display: flex;
   align-items: stretch;
+  gap: 14px;
   height: 100%;
+  padding-left: 2px;
 }
 
 .daily-progress-card__mascot {
-  flex: 0 0 42%;
-  max-width: 148px;
+  flex: 0 0 auto;
+  width: clamp(112px, 34vw, 136px);
+  max-width: 136px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -904,7 +907,7 @@ body {
 .daily-progress-card .mascot-avatar--hero {
   width: 100%;
   height: clamp(118px, 34vw, 144px);
-  max-width: 148px;
+  max-width: 136px;
   max-height: clamp(118px, 34vw, 144px);
   background: transparent;
   align-items: flex-end;
@@ -916,7 +919,7 @@ body {
 .daily-progress-card .mascot-avatar--hero .mascot-avatar__image {
   width: 100%;
   height: 100%;
-  max-width: 148px;
+  max-width: 136px;
   max-height: clamp(118px, 34vw, 144px);
   object-fit: contain;
   object-position: center bottom;
@@ -928,19 +931,18 @@ body {
 }
 
 .daily-progress-card__body {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  padding: 20px 16px 8px 4px;
+  padding: 20px 10px 8px 0;
   background: transparent;
 }
 
 .daily-progress-card__title-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   margin-bottom: 6px;
   min-width: 0;
@@ -948,26 +950,26 @@ body {
 }
 
 .daily-progress-card__title {
-  font-size: clamp(1.5rem, 5.8vw, 1.75rem);
+  font-size: clamp(1.75rem, 6vw, 1.875rem);
   font-weight: 800;
   color: #2f4538;
   line-height: 1.1;
   letter-spacing: 0.01em;
   margin: 0;
-  flex: 0 1 auto;
-  min-width: 0;
+  flex-shrink: 0;
   white-space: nowrap;
 }
 
 .daily-progress-card__badge {
   flex-shrink: 0;
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  height: 28px;
-  padding: 0 10px;
+  height: 27px;
+  padding: 0 9px;
   border-radius: 999px;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -1140,9 +1142,13 @@ body {
     background-position: center 70%, center bottom;
   }
 
+  .daily-progress-card__hero-inner {
+    gap: 12px;
+  }
+
   .daily-progress-card__mascot {
-    flex: 0 0 38%;
-    max-width: 124px;
+    width: clamp(104px, 30vw, 120px);
+    max-width: 120px;
   }
 
   .daily-progress-card .mascot-avatar--hero,
@@ -1152,11 +1158,11 @@ body {
   }
 
   .daily-progress-card__body {
-    padding: 18px 12px 8px 2px;
+    padding: 18px 8px 8px 0;
   }
 
   .daily-progress-card__title {
-    font-size: 1.5rem;
+    font-size: 1.75rem;
   }
 
   .daily-progress-card__badge {
