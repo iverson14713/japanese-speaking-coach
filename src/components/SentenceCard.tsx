@@ -20,8 +20,8 @@ export function SentenceCard({ sentence, language, mode = 'default' }: SentenceC
     >
       <p className="sentence-label">{label}</p>
       <p className="sentence-target">{sentence.targetText}</p>
-      {sentence.helperText ? <p className="sentence-helper">{sentence.helperText}</p> : null}
-      {sentence.pronunciation !== sentence.targetText ? (
+      {!isDaily && sentence.helperText ? <p className="sentence-helper">{sentence.helperText}</p> : null}
+      {!isDaily && sentence.pronunciation !== sentence.targetText ? (
         <p className="sentence-pronunciation">{sentence.pronunciation}</p>
       ) : null}
       <p className="sentence-chinese">{sentence.meaningZh}</p>

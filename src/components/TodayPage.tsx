@@ -106,7 +106,7 @@ export function TodayPage({ language, onLanguageChange }: TodayPageProps) {
   }
 
   return (
-    <>
+    <div className="today-page">
       <header className="today-header">
         <h1 className="today-title">今日練習</h1>
         <p className="today-subtitle">出國前，每天練一句</p>
@@ -116,7 +116,7 @@ export function TodayPage({ language, onLanguageChange }: TodayPageProps) {
 
       <TodayTaskCard todayCompleted={completedToday} streakCount={streak} />
 
-      <WeeklyProgress completedDates={completedDates} />
+      <WeeklyProgress completedDates={completedDates} streakCount={streak} />
 
       <main className="app-main today-main">
         <SentenceCard sentence={dailySentence} language={language} mode="daily" />
@@ -129,30 +129,15 @@ export function TodayPage({ language, onLanguageChange }: TodayPageProps) {
           isCorrect={isCorrect}
           isSupported={isSupported}
           errorMessage={errorMessage}
+          completedToday={completedToday}
+          streakCount={streak}
           onPressStart={handlePressStart}
           onPressEnd={handlePressEnd}
+          onCompleteToday={handleCompleteToday}
         />
-
-        <div className="today-complete-section">
-          {completedToday ? (
-            <div className="today-complete-done" role="status">
-              <span className="today-complete-done__icon" aria-hidden="true">
-                ✓
-              </span>
-              <span className="today-complete-done__copy">
-                <strong>今日練習完成</strong>
-                連續練習 {streak} 天，明天也一起加油
-              </span>
-            </div>
-          ) : (
-            <button type="button" className="today-complete-button" onClick={handleCompleteToday}>
-              完成今日練習
-            </button>
-          )}
-        </div>
 
         <AiPracticeEntry />
       </main>
-    </>
+    </div>
   )
 }

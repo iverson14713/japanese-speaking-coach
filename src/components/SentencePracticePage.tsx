@@ -154,7 +154,7 @@ export function SentencePracticePage({
 
       <main className="app-main">
         <SentenceCard sentence={currentSentence} language={language} />
-        <PhrasePractice chunks={currentSentence.phraseChunks} language={language} />
+        <PhrasePractice sentence={currentSentence} language={language} />
         <RecordButton
           state={recordState}
           transcript={transcript}
