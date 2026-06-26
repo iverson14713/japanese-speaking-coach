@@ -54,8 +54,8 @@ export function DailyProgressCard({
   const badgeLabel = todayCompleted ? '已完成' : '等待中'
   const badgeIcon = todayCompleted ? '✓' : '⏳'
   const displayMessage = todayCompleted
-    ? '太棒了！小狗今天超有精神～'
-    : '你再不練，我要委屈一整天了～'
+    ? '太棒了，小狗超開心！'
+    : '再練一句嘛，小狗在等你～'
   const hintLabel =
     todayCompleted && streakCount > 0
       ? `連續練習 ${streakCount} 天`

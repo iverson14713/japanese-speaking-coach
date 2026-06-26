@@ -941,9 +941,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 9px;
+  gap: 8px;
   margin-bottom: 6px;
   min-width: 0;
+  width: 100%;
 }
 
 .daily-progress-card__title {
@@ -964,9 +965,9 @@ body {
   align-items: center;
   gap: 3px;
   height: 28px;
-  padding: 0 8px;
+  padding: 0 10px;
   border-radius: 999px;
-  font-size: 0.62rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -974,7 +975,7 @@ body {
 }
 
 .daily-progress-card__badge-icon {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   line-height: 1;
 }
 
@@ -991,13 +992,14 @@ body {
 }
 
 .daily-progress-card__copy {
-  font-size: clamp(0.875rem, 3.6vw, 0.9375rem);
+  width: 100%;
+  max-width: 100%;
+  font-size: clamp(0.9375rem, 3.8vw, 1rem);
   color: #4a443c;
   line-height: 1.35;
   margin: 0 0 9px;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
   text-shadow: 0 1px 8px rgba(255, 252, 246, 0.65);
 }
 
@@ -1159,8 +1161,12 @@ body {
 
   .daily-progress-card__badge {
     height: 26px;
-    padding: 0 7px;
-    font-size: 0.58rem;
+    padding: 0 8px;
+    font-size: 0.75rem;
+  }
+
+  .daily-progress-card__copy {
+    font-size: 0.9375rem;
   }
 
   .daily-progress-card__progress {
