@@ -1,4 +1,7 @@
+import { useState } from 'react'
 import { APP_NAME, LEGAL_ROUTES } from '../../constants/legal'
+import { useProEntitlement } from '../../hooks/useProEntitlement'
+import { showToast } from '../../utils/toast'
 
 const LINKS = [
   { href: LEGAL_ROUTES.privacy, label: '隱私權政策' },
@@ -13,8 +16,28 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
+  const { isPro, restorePurchases } = useProEntitlement()
+  const [restoring, setRestoring] = useState(false)
+
   if (!open) {
     return null
+  }
+
+  const handleRestore = async () => {
+    if (restoring) {
+      return
+    }
+
+    setRestoring(true)
+    try {
+      const result = await restorePurchases()
+      showToast(result.message)
+      if (result.status === 'restored') {
+        onClose()
+      }
+    } finally {
+      setRestoring(false)
+    }
   }
 
   return (
@@ -38,7 +61,9 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
         <header className="settings-modal__header">
           <p className="settings-modal__app-name">{APP_NAME}</p>
           <p className="settings-modal__subtitle">英文・日文・韓文旅行口說都能練</p>
-          <p className="settings-modal__version">v1.0</p>
+          <p className="settings-modal__version">
+            v1.0{isPro ? ' · Pro' : ''}
+          </p>
         </header>
 
         <nav className="settings-modal__nav" aria-label="設定與關於">
@@ -53,6 +78,16 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                 </a>
               </li>
             ))}
+            <li>
+              <button
+                type="button"
+                className="settings-modal__action"
+                onClick={() => void handleRestore()}
+                disabled={restoring}
+              >
+                {restoring ? '恢復中…' : '恢復購買'}
+              </button>
+            </li>
           </ul>
         </nav>
       </div>

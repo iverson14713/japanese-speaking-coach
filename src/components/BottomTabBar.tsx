@@ -9,7 +9,7 @@ const TABS: { id: AppTab; label: string; icon: string }[] = [
   { id: 'today', label: '今日', icon: '🔥' },
   { id: 'library', label: '句庫', icon: '📖' },
   { id: 'dialogue', label: '情境', icon: '🎭' },
-  { id: 'coach', label: '教練', icon: '💬' },
+  { id: 'coach', label: '教練', icon: '🎧' },
 ]
 
 export function BottomTabBar({ activeTab, onTabChange }: BottomTabBarProps) {

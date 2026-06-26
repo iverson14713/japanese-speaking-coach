@@ -10,7 +10,6 @@ import {
   type ChatMessage,
   type ChatSessionInfo,
   type CoachAiSource,
-  type CoachPlan,
   type CoachPracticeMode,
   type SentenceCorrectionResult,
   type TopicChatSession,
@@ -43,6 +42,7 @@ import { useCoachAutoSpeak } from '../hooks/useCoachAutoSpeak'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { showToast } from '../utils/toast'
 import { useProUpgrade } from '../context/ProUpgradeContext'
+import { useProEntitlement } from '../hooks/useProEntitlement'
 import {
   buildCoachChatSnapshot,
   clearCoachChatSnapshotForMode,
@@ -60,8 +60,6 @@ interface CoachPageProps {
   language: Language
   onLanguageChange: (language: Language) => void
 }
-
-const DEFAULT_PLAN: CoachPlan = 'free'
 
 type CoachPhase = 'welcome' | 'active' | 'ended'
 type ChatMode = 'custom' | 'topic' | null
@@ -86,13 +84,14 @@ function formatAiConnectionError(debugMode: boolean): string {
 
 export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   const { openProUpgrade } = useProUpgrade()
+  const { coachPlan, isPro, setDebugProStatus } = useProEntitlement()
+  const plan = coachPlan
   const initialModeRef = useRef(loadCoachPracticeModePreference(language))
   const initialCoachStateRef = useRef(readInitialCoachState(language, initialModeRef.current))
   const initialCoach = initialCoachStateRef.current
 
-  const [plan] = useState<CoachPlan>(DEFAULT_PLAN)
   const [remainingSessions, setRemainingSessions] = useState(() =>
-    getRemainingCoachSessions(DEFAULT_PLAN, language),
+    getRemainingCoachSessions(plan, language),
   )
   const [phase, setPhase] = useState<CoachPhase>(initialCoach.phase)
   const [practiceMode, setPracticeMode] = useState<CoachPracticeMode>(initialCoach.practiceMode)
@@ -193,7 +192,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   const isDailyLimitReached = !debugMode && !canStartCoachSession(plan, language)
   const shouldPromptProUpgrade =
     !debugMode &&
-    plan === 'free' &&
+    !isPro &&
     ((isDailyLimitReached && phase === 'welcome') ||
       (practiceMode === 'scenario-practice' && scenarioEnded))
   const inputDisabled = loading
@@ -219,6 +218,10 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
   const refreshAiSource = useCallback(() => {
     setAiSource(getCoachAiSource())
   }, [])
+
+  useEffect(() => {
+    refreshUsage()
+  }, [plan, refreshUsage])
 
   useEffect(() => {
     syncAiCoachDebugFromUrl()
@@ -464,6 +467,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
 
   function handleDisableDebugMode() {
     disableAiCoachDebugMode()
+    setDebugProStatus(false)
     setDebugMode(false)
     refreshUsage()
   }
@@ -909,7 +913,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
         </h1>
       </header>
 
-      <LanguageSelector selected={language} onSelect={onLanguageChange} />
+      <LanguageSelector selected={language} onSelect={onLanguageChange} variant="coach" />
 
       <div className="coach-practice-mode-bar" role="group" aria-label="練習模式">
         <button
@@ -918,6 +922,9 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
           onClick={() => handlePracticeModeChange('free-chat')}
           disabled={loading || isListening}
         >
+          <span className="coach-practice-mode__icon" aria-hidden="true">
+            💬
+          </span>
           自由聊天
         </button>
         <button
@@ -926,6 +933,9 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
           onClick={() => handlePracticeModeChange('scenario-practice')}
           disabled={loading || isListening}
         >
+          <span className="coach-practice-mode__icon" aria-hidden="true">
+            💼
+          </span>
           情境練習
         </button>
       </div>
@@ -937,24 +947,52 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
           <span className="coach-debug-source">
             自動朗讀：{autoSpeakEnabled ? '開' : '關'}
           </span>
+          <span className="coach-debug-source">Pro：{isPro ? '開' : '關'}</span>
+          <button
+            type="button"
+            className="coach-debug-off"
+            onClick={() => setDebugProStatus(!isPro)}
+          >
+            {isPro ? '關閉測試 Pro' : '開啟測試 Pro'}
+          </button>
           <button type="button" className="coach-debug-off" onClick={handleDisableDebugMode}>
-            關閉
+            關閉測試
           </button>
         </div>
       ) : null}
 
-      <div className="coach-usage-bar coach-usage-bar--compact" role="status">
-        <p className="coach-usage-text">
-          {debugMode
-            ? '⚡ 測試模式：不限次數'
-            : `⚡ 今日能量：${remainingSessions} / ${dailyLimit}`}
-        </p>
-        {import.meta.env.DEV && isCoachMockMode() ? (
-          <span className="coach-usage-badge">Mock 模式</span>
-        ) : null}
-        <button type="button" className="coach-clear-chat" onClick={handleClearChat} disabled={loading}>
-          清除
-        </button>
+      <div className="coach-energy-card" role="status">
+        <div className="coach-energy-card__content">
+          <span className="coach-energy-card__icon" aria-hidden="true">
+            ⚡
+          </span>
+          <div className="coach-energy-card__text">
+            <p className="coach-energy-card__title">
+              {debugMode
+                ? '測試模式：不限次數'
+                : `今日能量 ${remainingSessions} / ${dailyLimit}`}
+            </p>
+            {!debugMode ? (
+              <p className="coach-energy-card__hint">每日重置，好好練習吧！</p>
+            ) : null}
+          </div>
+        </div>
+        <div className="coach-energy-card__actions">
+          {import.meta.env.DEV && isCoachMockMode() ? (
+            <span className="coach-usage-badge">Mock</span>
+          ) : null}
+          <button
+            type="button"
+            className="coach-clear-chat"
+            onClick={handleClearChat}
+            disabled={loading}
+          >
+            <span className="coach-clear-chat__icon" aria-hidden="true">
+              ↺
+            </span>
+            清除
+          </button>
+        </div>
       </div>
 
       {error ? (
@@ -983,6 +1021,7 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
       </div>
 
       <div className="coach-input-fixed">
+        <div className="coach-composer">
         {isListening ? (
           <div className="coach-voice-card" role="status" aria-live="polite">
             <div className="coach-voice-card-header">
@@ -1052,9 +1091,24 @@ export function CoachPage({ language, onLanguageChange }: CoachPageProps) {
             className={`coach-chat-send${shouldPromptProUpgrade ? ' coach-chat-send--upgrade-prompt' : ''}`}
             onClick={() => void handleSend()}
             disabled={loading || isListening || (!shouldPromptProUpgrade && !input.trim())}
+            aria-label={loading ? '送出中' : '送出'}
           >
-            {loading ? '…' : '送出'}
+            {loading ? (
+              <span className="coach-chat-send__label">…</span>
+            ) : (
+              <svg
+                className="coach-chat-send__icon"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                width={18}
+                height={18}
+                aria-hidden="true"
+              >
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+              </svg>
+            )}
           </button>
+        </div>
         </div>
       </div>
     </div>

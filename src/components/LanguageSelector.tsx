@@ -5,6 +5,7 @@ import { LANGUAGE_LABELS } from '../data/types'
 interface LanguageSelectorProps {
   selected: Language
   onSelect: (language: Language) => void
+  variant?: 'default' | 'coach'
 }
 
 const LANGUAGE_OPTIONS: { value: Language; label: string; flag: string }[] = [
@@ -13,7 +14,7 @@ const LANGUAGE_OPTIONS: { value: Language; label: string; flag: string }[] = [
   { value: 'ko', label: '韓文', flag: '🇰🇷' },
 ]
 
-export function LanguageSelector({ selected, onSelect }: LanguageSelectorProps) {
+export function LanguageSelector({ selected, onSelect, variant = 'default' }: LanguageSelectorProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   useEffect(() => {
@@ -42,7 +43,7 @@ export function LanguageSelector({ selected, onSelect }: LanguageSelectorProps) 
   }
 
   return (
-    <div className="language-picker">
+    <div className={`language-picker${variant === 'coach' ? ' language-picker--coach' : ''}`}>
       <button
         type="button"
         className="language-picker-trigger"
@@ -50,7 +51,15 @@ export function LanguageSelector({ selected, onSelect }: LanguageSelectorProps) 
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
-        目前學習：{LANGUAGE_LABELS[selected]} ▾
+        <span className="language-picker-trigger__icon" aria-hidden="true">
+          🌐
+        </span>
+        <span className="language-picker-trigger__label">
+          目前學習：{LANGUAGE_LABELS[selected]}
+        </span>
+        <span className="language-picker-trigger__chevron" aria-hidden="true">
+          ▾
+        </span>
       </button>
 
       {isOpen && (
