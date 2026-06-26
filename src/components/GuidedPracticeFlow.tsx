@@ -23,6 +23,7 @@ interface GuidedPracticeFlowProps {
   errorMessage: string | null
   completedToday: boolean
   streakCount: number
+  freezeCards?: number
   onPressStart: () => void
   onPressEnd: () => void
   onCompleteToday: () => void
@@ -38,6 +39,7 @@ export function GuidedPracticeFlow({
   errorMessage,
   completedToday,
   streakCount,
+  freezeCards = 0,
   onPressStart,
   onPressEnd,
   onCompleteToday,
@@ -138,6 +140,7 @@ export function GuidedPracticeFlow({
             <span className="today-complete-done__copy">
               <strong>今日練習完成</strong>
               連續練習 {streakCount} 天
+              {freezeCards > 0 ? ` · 補練卡 x${freezeCards}` : ''}
             </span>
           </div>
         ) : (

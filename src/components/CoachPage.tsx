@@ -61,6 +61,7 @@ import {
   isDailyAiPracticeComplete,
   markDailyAiPracticeComplete,
 } from '../utils/dailyAiPracticeCompletion'
+import { useRecordPracticeCompletion } from '../hooks/useRecordPracticeCompletion'
 import { clearDailyCoachHandoff } from '../utils/dailyCoachHandoffStorage'
 import type { DailyCoachHandoff } from '../types/dailyCoachHandoff'
 
@@ -140,6 +141,8 @@ export function CoachPage({
   const skipNextSaveRef = useRef(true)
   const shouldAutoScrollRef = useRef(true)
   const dailyHandoffKeyRef = useRef<string | null>(null)
+
+  const recordPractice = useRecordPracticeCompletion(language)
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior) => {
     const el = chatShellRef.current
@@ -796,6 +799,9 @@ export function CoachPage({
         return next
       })
       queueScrollToBottom('smooth')
+      if (isFirstMessage) {
+        recordPractice()
+      }
     } catch {
       setError(formatAiConnectionError(debugMode))
       setMessages(previousMessages)
@@ -904,6 +910,7 @@ export function CoachPage({
 
       if (nextUserTurn >= maxTurns) {
         setPhase('ended')
+        recordPractice()
       }
     } catch {
       setError(formatAiConnectionError(debugMode))

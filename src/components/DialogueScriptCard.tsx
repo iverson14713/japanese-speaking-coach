@@ -7,6 +7,7 @@ interface DialogueScriptCardProps {
   language: Language
   isExpanded: boolean
   onToggle: () => void
+  onCompletePractice: () => void
 }
 
 export function DialogueScriptCard({
@@ -14,6 +15,7 @@ export function DialogueScriptCard({
   language,
   isExpanded,
   onToggle,
+  onCompletePractice,
 }: DialogueScriptCardProps) {
   const turnCount = countScriptTurns(script)
 
@@ -64,6 +66,11 @@ export function DialogueScriptCard({
               </ul>
             </section>
           ))}
+          <div className="script-card-complete">
+            <button type="button" className="script-complete-button" onClick={onCompletePractice}>
+              完成情境練習
+            </button>
+          </div>
         </div>
       ) : null}
     </article>

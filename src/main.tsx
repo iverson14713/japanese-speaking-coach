@@ -4,13 +4,16 @@ import './index.css'
 import App from './App.tsx'
 import { ProEntitlementProvider } from './hooks/useProEntitlement'
 import { ProUpgradeProvider } from './context/ProUpgradeContext'
+import { StreakMilestoneProvider } from './context/StreakMilestoneContext'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ProEntitlementProvider>
-      <ProUpgradeProvider>
-        <App />
-      </ProUpgradeProvider>
+      <StreakMilestoneProvider>
+        <ProUpgradeProvider>
+          <App />
+        </ProUpgradeProvider>
+      </StreakMilestoneProvider>
     </ProEntitlementProvider>
   </StrictMode>,
 )

@@ -17,6 +17,7 @@ import { PhrasePractice } from './PhrasePractice'
 import { RecordButton, type RecordState } from './RecordButton'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { matchesKeyword } from '../utils/evaluateSpeech'
+import { useRecordPracticeCompletion } from '../hooks/useRecordPracticeCompletion'
 
 interface SentencePracticePageProps {
   language: Language
@@ -36,6 +37,8 @@ export function SentencePracticePage({
   const [isCorrect, setIsCorrect] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
+  const recordPractice = useRecordPracticeCompletion(language)
+
   const availableCategories = useMemo(() => getCategoriesForLanguage(language), [language])
 
   const categorySentences = useMemo(
@@ -54,8 +57,12 @@ export function SentencePracticePage({
       setIsCorrect(matchesKeyword(text, currentSentence.keywords))
       setErrorMessage(null)
       setRecordState('feedback')
+
+      if (matchesKeyword(text, currentSentence.keywords)) {
+        recordPractice()
+      }
     },
-    [currentSentence],
+    [currentSentence, recordPractice],
   )
 
   const handleRecognitionError = useCallback((message: string) => {

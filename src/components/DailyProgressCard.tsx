@@ -10,6 +10,7 @@ interface DailyProgressCardProps {
   streakCount: number
   lastPracticeDate: string | null
   completedDates: string[]
+  freezeCards?: number
 }
 
 function toMascotState(progress: ReturnType<typeof getDailyProgressState>): MascotState {
@@ -29,6 +30,7 @@ export function DailyProgressCard({
   streakCount,
   lastPracticeDate,
   completedDates,
+  freezeCards = 0,
 }: DailyProgressCardProps) {
   const progress = useMemo(
     () =>
@@ -116,10 +118,15 @@ export function DailyProgressCard({
           ))}
         </div>
 
-        <p className="daily-progress-card__streak">
-          連續{' '}
-          <strong className="daily-progress-card__streak-num">{progress.streakDays}</strong> 天
-        </p>
+        <div className="daily-progress-card__streak-meta">
+          <p className="daily-progress-card__streak">
+            連續{' '}
+            <strong className="daily-progress-card__streak-num">{progress.streakDays}</strong> 天
+          </p>
+          {freezeCards > 0 ? (
+            <p className="daily-progress-card__freeze">補練卡 x{freezeCards}</p>
+          ) : null}
+        </div>
       </div>
     </article>
   )

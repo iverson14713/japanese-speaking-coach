@@ -3,10 +3,10 @@ import type { Sentence } from '../data/sentences'
 import { SPEECH_LANG, type Language } from '../data/sentences'
 import { getDailySentence } from '../utils/dailySentence'
 import {
-  completeToday,
   getCompletedDates,
   getLastPracticeDate,
   getStreak,
+  getStreakFreezeCards,
   isTodayCompleted,
 } from '../utils/dailyPracticeStorage'
 import { LanguageSelector } from './LanguageSelector'
@@ -20,6 +20,7 @@ import { matchesKeyword } from '../utils/evaluateSpeech'
 import type { RecordState } from './RecordButton'
 import { isDailyAiPracticeComplete } from '../utils/dailyAiPracticeCompletion'
 import { getTodayDateKey } from '../utils/dateKey'
+import { useRecordPracticeCompletion } from '../hooks/useRecordPracticeCompletion'
 
 interface TodayPageProps {
   language: Language
@@ -46,9 +47,33 @@ export function TodayPage({
   const [streak, setStreak] = useState(() => getStreak(language))
   const [lastPracticeDate, setLastPracticeDate] = useState(() => getLastPracticeDate(language))
   const [completedDates, setCompletedDates] = useState(() => getCompletedDates(language))
+  const [freezeCards, setFreezeCards] = useState(() => getStreakFreezeCards(language))
   const [aiPracticeCompleted, setAiPracticeCompleted] = useState(false)
 
+  const recordPractice = useRecordPracticeCompletion(language)
   const dailySentence = useMemo(() => getDailySentence(language), [language])
+
+  const refreshProgress = useCallback(() => {
+    setCompletedToday(isTodayCompleted(language))
+    setStreak(getStreak(language))
+    setLastPracticeDate(getLastPracticeDate(language))
+    setCompletedDates(getCompletedDates(language))
+    setFreezeCards(getStreakFreezeCards(language))
+  }, [language])
+
+  const applyPracticeResult = useCallback(
+    (result: ReturnType<typeof recordPractice>) => {
+      if (!result.isNewCompletion) {
+        return
+      }
+      setCompletedToday(true)
+      setStreak(result.streak)
+      setLastPracticeDate(getTodayDateKey())
+      setCompletedDates(getCompletedDates(language))
+      setFreezeCards(result.freezeCards)
+    },
+    [language],
+  )
 
   const resetFeedback = useCallback(() => {
     setTranscript('')
@@ -58,27 +83,29 @@ export function TodayPage({
   }, [])
 
   useEffect(() => {
-    setCompletedToday(isTodayCompleted(language))
-    setStreak(getStreak(language))
-    setLastPracticeDate(getLastPracticeDate(language))
-    setCompletedDates(getCompletedDates(language))
+    refreshProgress()
     resetFeedback()
     if (dailySentence) {
       setAiPracticeCompleted(isDailyAiPracticeComplete(language, dailySentence.id))
     }
-  }, [language, resetFeedback, dailySentence])
+  }, [language, resetFeedback, dailySentence, refreshProgress])
 
   const handleRecognitionResult = useCallback(
     (text: string) => {
       if (!dailySentence) {
         return
       }
+      const correct = matchesKeyword(text, dailySentence.keywords)
       setTranscript(text)
-      setIsCorrect(matchesKeyword(text, dailySentence.keywords))
+      setIsCorrect(correct)
       setErrorMessage(null)
       setRecordState('feedback')
+
+      if (correct) {
+        applyPracticeResult(recordPractice())
+      }
     },
-    [dailySentence],
+    [applyPracticeResult, dailySentence, recordPractice],
   )
 
   const handleRecognitionError = useCallback((message: string) => {
@@ -116,11 +143,7 @@ export function TodayPage({
   }
 
   const handleCompleteToday = () => {
-    const result = completeToday(language)
-    setCompletedToday(true)
-    setStreak(result.streak)
-    setLastPracticeDate(getTodayDateKey())
-    setCompletedDates(getCompletedDates(language))
+    applyPracticeResult(recordPractice())
   }
 
   if (!dailySentence) {
@@ -141,6 +164,7 @@ export function TodayPage({
         streakCount={streak}
         lastPracticeDate={lastPracticeDate}
         completedDates={completedDates}
+        freezeCards={freezeCards}
       />
 
       <main className="app-main today-main">
@@ -156,6 +180,7 @@ export function TodayPage({
           errorMessage={errorMessage}
           completedToday={completedToday}
           streakCount={streak}
+          freezeCards={freezeCards}
           onPressStart={handlePressStart}
           onPressEnd={handlePressEnd}
           onCompleteToday={handleCompleteToday}

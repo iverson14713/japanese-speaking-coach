@@ -5,6 +5,7 @@ import {
   getScriptsByCategory,
   type DialogueCategoryId,
 } from '../data/dialogues'
+import { useRecordPracticeCompletion } from '../hooks/useRecordPracticeCompletion'
 import { DialogueScriptCard } from './DialogueScriptCard'
 
 interface DialogueDetailPageProps {
@@ -15,6 +16,7 @@ interface DialogueDetailPageProps {
 
 export function DialogueDetailPage({ language, category, onBack }: DialogueDetailPageProps) {
   const [expandedScriptId, setExpandedScriptId] = useState<string | null>(null)
+  const recordPractice = useRecordPracticeCompletion(language)
   const scenario = getDialogueScenario(category)
   const scripts = getScriptsByCategory(language, category)
 
@@ -64,6 +66,9 @@ export function DialogueDetailPage({ language, category, onBack }: DialogueDetai
               language={language}
               isExpanded={expandedScriptId === script.id}
               onToggle={() => handleToggle(script.id)}
+              onCompletePractice={() => {
+                recordPractice()
+              }}
             />
           ))}
         </div>
