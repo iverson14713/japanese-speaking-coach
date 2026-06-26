@@ -34,6 +34,17 @@ function saveData(language: Language, data: DailyPracticeData): void {
   localStorage.setItem(storageKey(language), JSON.stringify(data))
 }
 
+export function getLastPracticeDate(language: Language): string | null {
+  const data = loadData(language)
+  if (data.lastCompletedDate) {
+    return data.lastCompletedDate
+  }
+  if (data.completedDates.length === 0) {
+    return null
+  }
+  return [...data.completedDates].sort().at(-1) ?? null
+}
+
 export function isTodayCompleted(language: Language): boolean {
   const data = loadData(language)
   return data.completedDates.includes(getTodayDateKey())

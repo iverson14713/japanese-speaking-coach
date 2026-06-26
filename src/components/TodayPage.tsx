@@ -5,6 +5,7 @@ import { getDailySentence } from '../utils/dailySentence'
 import {
   completeToday,
   getCompletedDates,
+  getLastPracticeDate,
   getStreak,
   isTodayCompleted,
 } from '../utils/dailyPracticeStorage'
@@ -18,6 +19,7 @@ import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { matchesKeyword } from '../utils/evaluateSpeech'
 import type { RecordState } from './RecordButton'
 import { isDailyAiPracticeComplete } from '../utils/dailyAiPracticeCompletion'
+import { getTodayDateKey } from '../utils/dateKey'
 
 interface TodayPageProps {
   language: Language
@@ -42,6 +44,7 @@ export function TodayPage({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [completedToday, setCompletedToday] = useState(() => isTodayCompleted(language))
   const [streak, setStreak] = useState(() => getStreak(language))
+  const [lastPracticeDate, setLastPracticeDate] = useState(() => getLastPracticeDate(language))
   const [completedDates, setCompletedDates] = useState(() => getCompletedDates(language))
   const [aiPracticeCompleted, setAiPracticeCompleted] = useState(false)
 
@@ -57,6 +60,7 @@ export function TodayPage({
   useEffect(() => {
     setCompletedToday(isTodayCompleted(language))
     setStreak(getStreak(language))
+    setLastPracticeDate(getLastPracticeDate(language))
     setCompletedDates(getCompletedDates(language))
     resetFeedback()
     if (dailySentence) {
@@ -115,6 +119,7 @@ export function TodayPage({
     const result = completeToday(language)
     setCompletedToday(true)
     setStreak(result.streak)
+    setLastPracticeDate(getTodayDateKey())
     setCompletedDates(getCompletedDates(language))
   }
 
@@ -131,7 +136,11 @@ export function TodayPage({
 
       <LanguageSelector selected={language} onSelect={handleLanguageChange} />
 
-      <TodayTaskCard todayCompleted={completedToday} streakCount={streak} />
+      <TodayTaskCard
+        todayCompleted={completedToday}
+        streakCount={streak}
+        lastPracticeDate={lastPracticeDate}
+      />
 
       <WeeklyProgress completedDates={completedDates} streakCount={streak} />
 
