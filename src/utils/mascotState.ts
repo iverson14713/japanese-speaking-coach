@@ -3,10 +3,17 @@ import { getTodayDateKey } from './dateKey'
 export type MascotMood = 'happy' | 'excited' | 'sad' | 'tired'
 
 export const MASCOT_IMAGE_BY_MOOD: Record<MascotMood, string> = {
-  happy: 'dog-happy.png',
-  excited: 'dog-excited.png',
-  sad: 'dog-sad.png',
-  tired: 'dog-tired.png',
+  happy: 'dog-happy.webp',
+  excited: 'dog-excited.webp',
+  sad: 'dog-sad.webp',
+  tired: 'dog-tired.webp',
+}
+
+export const MASCOT_IMAGE_FALLBACK_BY_MOOD: Record<MascotMood, string> = {
+  happy: 'dog-happy-transparent.png',
+  excited: 'dog-excited-transparent.png',
+  sad: 'dog-sad-transparent.png',
+  tired: 'dog-tired-transparent.png',
 }
 
 export const MASCOT_EMOJI_BY_MOOD: Record<MascotMood, string> = {
@@ -22,7 +29,10 @@ export const DEFAULT_MASCOT_IMAGE = MASCOT_IMAGE_BY_MOOD.happy
 
 export const DEFAULT_MASCOT_IMAGE_URL = `${MASCOT_BASE_PATH}/${DEFAULT_MASCOT_IMAGE}`
 
-const VALID_MASCOT_FILENAMES = new Set<string>(Object.values(MASCOT_IMAGE_BY_MOOD))
+const VALID_MASCOT_FILENAMES = new Set<string>([
+  ...Object.values(MASCOT_IMAGE_BY_MOOD),
+  ...Object.values(MASCOT_IMAGE_FALLBACK_BY_MOOD),
+])
 
 export function resolveMascotImageFilename(mood: MascotMood | string | undefined): string {
   if (mood && typeof mood === 'string' && mood in MASCOT_IMAGE_BY_MOOD) {
@@ -37,6 +47,10 @@ export function getMascotImageUrl(filename: string | undefined): string {
       ? filename
       : DEFAULT_MASCOT_IMAGE
   return `${MASCOT_BASE_PATH}/${safeFilename}`
+}
+
+export function getMascotFallbackImageUrl(mood: MascotMood): string {
+  return getMascotImageUrl(MASCOT_IMAGE_FALLBACK_BY_MOOD[mood])
 }
 
 export function isValidMascotState(state: MascotState | null | undefined): state is MascotState {

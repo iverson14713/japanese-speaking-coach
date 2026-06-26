@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   DEFAULT_MASCOT_IMAGE_URL,
+  getMascotFallbackImageUrl,
   getMascotImageUrl,
   type MascotState,
 } from '../utils/mascotState'
@@ -40,6 +41,12 @@ export function MascotAvatar({ state, className }: MascotAvatarProps) {
   }, [src])
 
   const handleError = () => {
+    const fallbackPng = getMascotFallbackImageUrl(state.mood)
+    if (src !== fallbackPng && state.image.endsWith('.webp')) {
+      setSrc(fallbackPng)
+      setShowEmoji(false)
+      return
+    }
     const fallbackSrc = DEFAULT_MASCOT_IMAGE_URL
     if (src !== fallbackSrc) {
       setSrc(fallbackSrc)

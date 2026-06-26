@@ -74,9 +74,13 @@ export function DailyProgressCard({
       <div className="daily-progress-card__main">
         <div className="daily-progress-card__scene" aria-hidden="false">
           <div className="daily-progress-card__scene-ground" aria-hidden="true">
+            <span className="daily-progress-card__halo" />
+            <span className="daily-progress-card__grass" />
             <span className="daily-progress-card__petal daily-progress-card__petal--1" />
             <span className="daily-progress-card__petal daily-progress-card__petal--2" />
             <span className="daily-progress-card__petal daily-progress-card__petal--3" />
+            <span className="daily-progress-card__spark daily-progress-card__spark--1" />
+            <span className="daily-progress-card__spark daily-progress-card__spark--2" />
           </div>
           <MascotAvatar state={displayMascotState} className="mascot-avatar--scene" />
         </div>
