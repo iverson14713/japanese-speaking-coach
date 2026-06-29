@@ -1,6 +1,10 @@
 import type { Sentence } from '../data/sentences'
 import type { Language } from '../data/types'
 import { getCategoryLabel } from '../data/categories'
+import {
+  getSentenceDisplayHelper,
+  getSentenceDisplayPronunciation,
+} from '../utils/sentenceDisplay'
 import { speakText } from '../utils/speechSynthesis'
 
 interface SentenceCardProps {
@@ -12,6 +16,8 @@ interface SentenceCardProps {
 export function SentenceCard({ sentence, language, mode = 'default' }: SentenceCardProps) {
   const label = mode === 'daily' ? '今日句子' : getCategoryLabel(sentence.category)
   const isDaily = mode === 'daily'
+  const pronunciationLine = getSentenceDisplayPronunciation(sentence)
+  const helperLine = getSentenceDisplayHelper(sentence)
 
   return (
     <section
@@ -28,11 +34,15 @@ export function SentenceCard({ sentence, language, mode = 'default' }: SentenceC
       ) : (
         <p className="sentence-label">{label}</p>
       )}
+
       <p className="sentence-target">{sentence.targetText}</p>
-      {!isDaily && sentence.helperText ? <p className="sentence-helper">{sentence.helperText}</p> : null}
-      {!isDaily && sentence.pronunciation !== sentence.targetText ? (
-        <p className="sentence-pronunciation">{sentence.pronunciation}</p>
+
+      {!isDaily && helperLine ? <p className="sentence-helper">{helperLine}</p> : null}
+      {pronunciationLine ? <p className="sentence-pronunciation">{pronunciationLine}</p> : null}
+      {isDaily && helperLine ? (
+        <p className="sentence-helper sentence-helper--compact">{helperLine}</p>
       ) : null}
+
       <p className="sentence-chinese">{sentence.meaningZh}</p>
       <p className="sentence-usage">
         <span className="sentence-usage__label">使用時機</span>

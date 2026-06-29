@@ -1,6 +1,7 @@
 import type { Sentence } from '../data/sentences'
 import type { Language } from '../data/types'
 import { getPracticePhraseChunks } from '../utils/phraseChunkResolver'
+import { getChunkDisplayPronunciation } from '../utils/sentenceDisplay'
 import { SpeakButton } from './SpeakButton'
 
 interface PhrasePracticeProps {
@@ -28,6 +29,16 @@ export function PhrasePractice({ sentence, language, variant = 'default' }: Phra
             ) : null}
             <div className="phrase-row-content">
               <p className="phrase-row-text">{chunk.text}</p>
+              {(() => {
+                const chunkPronunciation = getChunkDisplayPronunciation(
+                  language,
+                  chunk,
+                  sentence,
+                )
+                return chunkPronunciation ? (
+                  <p className="phrase-row-pronunciation">{chunkPronunciation}</p>
+                ) : null
+              })()}
               <p className="phrase-row-meaning">{chunk.chinese}</p>
             </div>
             <SpeakButton

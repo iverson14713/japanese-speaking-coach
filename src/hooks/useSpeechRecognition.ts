@@ -82,7 +82,7 @@ export function useSpeechRecognition({
         event.error === 'not-allowed'
           ? MICROPHONE_DENIED_MESSAGE
           : event.error === 'no-speech'
-            ? '沒有聽到聲音，請再試一次。'
+            ? '沒有聽清楚，可以再試一次。'
             : '語音辨識發生錯誤，請再試一次。'
 
       onErrorRef.current?.(message)
@@ -104,7 +104,13 @@ export function useSpeechRecognition({
         return
       }
 
-      onResultRef.current(transcriptRef.current)
+      const finalTranscript = transcriptRef.current.trim()
+      if (!finalTranscript) {
+        onErrorRef.current?.('沒有聽清楚，可以再試一次。')
+        return
+      }
+
+      onResultRef.current(finalTranscript)
     }
 
     recognitionRef.current = recognition

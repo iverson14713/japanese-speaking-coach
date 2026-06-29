@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { Sentence } from '../data/sentences'
 import type { Language } from '../data/types'
-import { speakText } from '../utils/speechSynthesis'
+import { speakText, stopSpeaking } from '../utils/speechSynthesis'
+import { getSentenceDisplayPronunciation } from '../utils/sentenceDisplay'
 import { PhrasePractice } from './PhrasePractice'
-import { RecordButton, type RecordState } from './RecordButton'
+import { GuidedRepeatButton } from './GuidedRepeatButton'
 
 type PracticeStepId = 'listen' | 'segments' | 'record'
 
@@ -16,32 +17,32 @@ const PRACTICE_STEPS: { id: PracticeStepId; label: string }[] = [
 interface GuidedPracticeFlowProps {
   sentence: Sentence
   language: Language
-  recordState: RecordState
+  isSpeechSupported: boolean
+  isListening: boolean
+  interimTranscript: string
   transcript: string
-  isCorrect: boolean
-  isSupported: boolean
   errorMessage: string | null
   completedToday: boolean
   streakCount: number
   freezeCards?: number
-  onPressStart: () => void
-  onPressEnd: () => void
+  onToggleListening: () => void
+  onRetryRepeat: () => void
   onCompleteToday: () => void
 }
 
 export function GuidedPracticeFlow({
   sentence,
   language,
-  recordState,
+  isSpeechSupported,
+  isListening,
+  interimTranscript,
   transcript,
-  isCorrect,
-  isSupported,
   errorMessage,
   completedToday,
   streakCount,
   freezeCards = 0,
-  onPressStart,
-  onPressEnd,
+  onToggleListening,
+  onRetryRepeat,
   onCompleteToday,
 }: GuidedPracticeFlowProps) {
   const [activeStep, setActiveStep] = useState<PracticeStepId>('listen')
@@ -50,6 +51,16 @@ export function GuidedPracticeFlow({
   useEffect(() => {
     setActiveStep('listen')
   }, [sentence.id, language])
+
+  const handlePlaySentence = () => {
+    if (isListening) {
+      return
+    }
+    stopSpeaking()
+    speakText(sentence, language)
+  }
+
+  const sentencePronunciation = getSentenceDisplayPronunciation(sentence)
 
   return (
     <section className="guided-practice" aria-label="今日練習流程">
@@ -86,7 +97,7 @@ export function GuidedPracticeFlow({
             <button
               type="button"
               className="practice-step__listen-btn"
-              onClick={() => speakText(sentence, language)}
+              onClick={handlePlaySentence}
               aria-label="先聽一次練習句"
             >
               <span className="practice-step__listen-icon" aria-hidden="true">
@@ -116,16 +127,17 @@ export function GuidedPracticeFlow({
             aria-labelledby="practice-tab-record"
             className="practice-step-content"
           >
-            <p className="practice-step-content__hint">按住麥克風，試著說出完整句子</p>
-            <RecordButton
-              variant="guided"
-              state={recordState}
+            <p className="practice-step-content__hint">點一下開始跟讀，再點一下停止</p>
+            <GuidedRepeatButton
+              isSupported={isSpeechSupported}
+              isListening={isListening}
+              interimTranscript={interimTranscript}
               transcript={transcript}
-              isCorrect={isCorrect}
-              isSupported={isSupported}
+              targetText={sentence.targetText}
+              pronunciation={sentencePronunciation}
               errorMessage={errorMessage}
-              onPressStart={onPressStart}
-              onPressEnd={onPressEnd}
+              onToggleListening={onToggleListening}
+              onRetry={onRetryRepeat}
             />
           </div>
         ) : null}

@@ -16,11 +16,10 @@ import { DailyProgressCard } from './DailyProgressCard'
 import { AiPracticeEntry } from './AiPracticeEntry'
 import { CrossPromoSection } from './CrossPromoSection'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
-import { matchesKeyword } from '../utils/evaluateSpeech'
-import type { RecordState } from './RecordButton'
 import { isDailyAiPracticeComplete } from '../utils/dailyAiPracticeCompletion'
 import { getTodayDateKey } from '../utils/dateKey'
 import { useRecordPracticeCompletion } from '../hooks/useRecordPracticeCompletion'
+import { stopSpeaking } from '../utils/speechSynthesis'
 
 interface TodayPageProps {
   language: Language
@@ -39,9 +38,7 @@ export function TodayPage({
   canStartAiPractice,
   isPro,
 }: TodayPageProps) {
-  const [recordState, setRecordState] = useState<RecordState>('idle')
   const [transcript, setTranscript] = useState('')
-  const [isCorrect, setIsCorrect] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [completedToday, setCompletedToday] = useState(() => isTodayCompleted(language))
   const [streak, setStreak] = useState(() => getStreak(language))
@@ -75,72 +72,69 @@ export function TodayPage({
     [language],
   )
 
-  const resetFeedback = useCallback(() => {
+  const resetRepeatState = useCallback(() => {
     setTranscript('')
-    setIsCorrect(false)
     setErrorMessage(null)
-    setRecordState('idle')
   }, [])
 
   useEffect(() => {
     refreshProgress()
-    resetFeedback()
+    resetRepeatState()
     if (dailySentence) {
       setAiPracticeCompleted(isDailyAiPracticeComplete(language, dailySentence.id))
     }
-  }, [language, resetFeedback, dailySentence, refreshProgress])
+  }, [language, resetRepeatState, dailySentence, refreshProgress])
 
-  const handleRecognitionResult = useCallback(
-    (text: string) => {
-      if (!dailySentence) {
-        return
-      }
-      const correct = matchesKeyword(text, dailySentence.keywords)
-      setTranscript(text)
-      setIsCorrect(correct)
-      setErrorMessage(null)
-      setRecordState('feedback')
-
-      if (correct) {
-        applyPracticeResult(recordPractice())
-      }
-    },
-    [applyPracticeResult, dailySentence, recordPractice],
-  )
+  const handleRecognitionResult = useCallback((text: string) => {
+    setTranscript(text)
+    setErrorMessage(null)
+  }, [])
 
   const handleRecognitionError = useCallback((message: string) => {
     setTranscript('')
-    setIsCorrect(false)
     setErrorMessage(message)
-    setRecordState('feedback')
   }, [])
 
-  const { isSupported, startListening, stopListening } = useSpeechRecognition({
+  const {
+    isSupported,
+    isListening,
+    interimTranscript,
+    startListening,
+    stopListening,
+  } = useSpeechRecognition({
     lang: SPEECH_LANG[language],
     onResult: handleRecognitionResult,
     onError: handleRecognitionError,
   })
 
-  const handleLanguageChange = (nextLanguage: Language) => {
-    onLanguageChange(nextLanguage)
-  }
+  useEffect(() => {
+    resetRepeatState()
+    return () => {
+      stopListening()
+    }
+  }, [language, dailySentence?.id, resetRepeatState, stopListening])
 
-  const handlePressStart = () => {
-    if (!isSupported || recordState === 'recording' || recordState === 'processing') {
+  const handleToggleListening = useCallback(() => {
+    if (!isSupported) {
       return
     }
-    resetFeedback()
-    setRecordState('recording')
-    startListening()
-  }
 
-  const handlePressEnd = () => {
-    if (recordState !== 'recording') {
+    if (isListening) {
+      stopListening()
       return
     }
-    setRecordState('processing')
-    stopListening()
-  }
+
+    resetRepeatState()
+    stopSpeaking()
+    void startListening()
+  }, [isSupported, isListening, resetRepeatState, startListening, stopListening])
+
+  const handleRetryRepeat = useCallback(() => {
+    if (isListening) {
+      stopListening()
+    }
+    resetRepeatState()
+  }, [isListening, resetRepeatState, stopListening])
 
   const handleCompleteToday = () => {
     applyPracticeResult(recordPractice())
@@ -157,7 +151,7 @@ export function TodayPage({
         <p className="today-subtitle">出國前，每天練一句</p>
       </header>
 
-      <LanguageSelector selected={language} onSelect={handleLanguageChange} />
+      <LanguageSelector selected={language} onSelect={onLanguageChange} />
 
       <DailyProgressCard
         todayCompleted={completedToday}
@@ -173,16 +167,16 @@ export function TodayPage({
         <GuidedPracticeFlow
           sentence={dailySentence}
           language={language}
-          recordState={recordState}
+          isSpeechSupported={isSupported}
+          isListening={isListening}
+          interimTranscript={interimTranscript}
           transcript={transcript}
-          isCorrect={isCorrect}
-          isSupported={isSupported}
           errorMessage={errorMessage}
           completedToday={completedToday}
           streakCount={streak}
           freezeCards={freezeCards}
-          onPressStart={handlePressStart}
-          onPressEnd={handlePressEnd}
+          onToggleListening={handleToggleListening}
+          onRetryRepeat={handleRetryRepeat}
           onCompleteToday={handleCompleteToday}
         />
 
