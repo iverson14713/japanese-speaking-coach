@@ -1110,7 +1110,15 @@ body {
   font-size: 1.2rem;
   line-height: 1;
   opacity: 0.48;
-  transition: opacity 0.18s ease;
+  transition: opacity 0.18s ease, color 0.18s ease;
+}
+
+.bottom-tab-icon--svg {
+  display: block;
+  width: 21px;
+  height: 21px;
+  color: var(--color-text-secondary);
+  opacity: 0.55;
 }
 
 .bottom-tab-label {
@@ -1122,11 +1130,26 @@ body {
   transition: color 0.18s ease;
 }
 
+.bottom-tab--dialogue .bottom-tab-inner {
+  gap: 3px;
+  min-width: 56px;
+  padding: 5px 10px 6px;
+}
+
+.bottom-tab--dialogue .bottom-tab-label {
+  letter-spacing: 0.05em;
+}
+
 .bottom-tab--active .bottom-tab-inner {
   background: rgba(237, 247, 241, 0.95);
 }
 
 .bottom-tab--active .bottom-tab-icon {
+  opacity: 1;
+}
+
+.bottom-tab--active .bottom-tab-icon--svg {
+  color: #4f8f6e;
   opacity: 1;
 }
 
