@@ -1099,42 +1099,48 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  min-width: 56px;
-  padding: 5px 10px 6px;
+  gap: 2px;
+  min-width: 54px;
+  padding: 6px 10px;
   border-radius: 14px;
   transition: background 0.18s ease, transform 0.12s ease;
 }
 
 .bottom-tab-icon {
-  display: block;
+  font-size: 1.2rem;
   line-height: 1;
-  transition: color 0.18s ease, width 0.18s ease, height 0.18s ease;
+  opacity: 0.48;
+  transition: opacity 0.18s ease, color 0.18s ease;
 }
 
 .bottom-tab-icon--svg {
-  width: 22px;
-  height: 22px;
-  color: #6f8578;
+  display: block;
+  width: 1.3rem;
+  height: 1.3rem;
+  color: #5f7a68;
+  opacity: 0.72;
 }
 
 .bottom-tab-label {
   font-size: 0.68rem;
   font-weight: 500;
-  color: #6f8578;
-  letter-spacing: 0.03em;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.02em;
   line-height: 1.2;
-  transition: color 0.18s ease, font-weight 0.18s ease;
+  transition: color 0.18s ease;
 }
 
 .bottom-tab--active .bottom-tab-inner {
   background: rgba(237, 247, 241, 0.95);
 }
 
+.bottom-tab--active .bottom-tab-icon {
+  opacity: 1;
+}
+
 .bottom-tab--active .bottom-tab-icon--svg {
-  width: 24px;
-  height: 24px;
   color: #4f8f6e;
+  opacity: 1;
 }
 
 .bottom-tab--active .bottom-tab-label {

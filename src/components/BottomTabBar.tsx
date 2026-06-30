@@ -1,8 +1,5 @@
 import type { ComponentType } from 'react'
-import { CoachTabIcon } from './icons/CoachTabIcon'
 import { DialogueTabIcon } from './icons/DialogueTabIcon'
-import { LibraryTabIcon } from './icons/LibraryTabIcon'
-import { TodayTabIcon } from './icons/TodayTabIcon'
 
 export type AppTab = 'today' | 'library' | 'dialogue' | 'coach'
 
@@ -16,14 +13,15 @@ type TabIconComponent = ComponentType<{ className?: string }>
 interface TabConfig {
   id: AppTab
   label: string
-  Icon: TabIconComponent
+  icon?: string
+  Icon?: TabIconComponent
 }
 
 const TABS: TabConfig[] = [
-  { id: 'today', label: '今日', Icon: TodayTabIcon },
-  { id: 'library', label: '句庫', Icon: LibraryTabIcon },
+  { id: 'today', label: '今日', icon: '🔥' },
+  { id: 'library', label: '句庫', icon: '📖' },
   { id: 'dialogue', label: '情境', Icon: DialogueTabIcon },
-  { id: 'coach', label: '教練', Icon: CoachTabIcon },
+  { id: 'coach', label: '教練', icon: '🎧' },
 ]
 
 export function BottomTabBar({ activeTab, onTabChange }: BottomTabBarProps) {
@@ -43,7 +41,13 @@ export function BottomTabBar({ activeTab, onTabChange }: BottomTabBarProps) {
             onClick={() => onTabChange(tab.id)}
           >
             <span className="bottom-tab-inner">
-              <TabIcon className="bottom-tab-icon bottom-tab-icon--svg" />
+              {tab.icon ? (
+                <span className="bottom-tab-icon" aria-hidden="true">
+                  {tab.icon}
+                </span>
+              ) : TabIcon ? (
+                <TabIcon className="bottom-tab-icon bottom-tab-icon--svg" />
+              ) : null}
               <span className="bottom-tab-label">{tab.label}</span>
             </span>
           </button>
