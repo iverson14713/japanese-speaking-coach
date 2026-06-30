@@ -14,8 +14,7 @@ import { SentenceCard } from './SentenceCard'
 import { GuidedPracticeFlow } from './GuidedPracticeFlow'
 import { DailyProgressCard } from './DailyProgressCard'
 import { AiPracticeEntry } from './AiPracticeEntry'
-import { TranslationChallengeEntry } from './translationChallenge/TranslationChallengeEntry'
-import { TranslationChallengeOverlay } from './translationChallenge/TranslationChallengeOverlay'
+import { DailyRecommendedChallenge } from './today/DailyRecommendedChallenge'
 import { CrossPromoSection } from './CrossPromoSection'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { isDailyAiPracticeComplete } from '../utils/dailyAiPracticeCompletion'
@@ -27,6 +26,7 @@ interface TodayPageProps {
   language: Language
   onLanguageChange: (language: Language) => void
   onStartDailyAiPractice: (sentence: Sentence) => void
+  onOpenRecommendedChallenge: () => void
   onOpenProUpgrade: () => void
   canStartAiPractice: boolean
   isPro: boolean
@@ -36,6 +36,7 @@ export function TodayPage({
   language,
   onLanguageChange,
   onStartDailyAiPractice,
+  onOpenRecommendedChallenge,
   onOpenProUpgrade,
   canStartAiPractice,
   isPro,
@@ -48,7 +49,6 @@ export function TodayPage({
   const [completedDates, setCompletedDates] = useState(() => getCompletedDates(language))
   const [freezeCards, setFreezeCards] = useState(() => getStreakFreezeCards(language))
   const [aiPracticeCompleted, setAiPracticeCompleted] = useState(false)
-  const [translationChallengeOpen, setTranslationChallengeOpen] = useState(false)
 
   const recordPractice = useRecordPracticeCompletion(language)
   const dailySentence = useMemo(() => getDailySentence(language), [language])
@@ -192,17 +192,10 @@ export function TodayPage({
           onUpgrade={onOpenProUpgrade}
         />
 
-        <TranslationChallengeEntry onStart={() => setTranslationChallengeOpen(true)} />
+        <DailyRecommendedChallenge onStart={onOpenRecommendedChallenge} />
 
         <CrossPromoSection />
       </main>
-
-      <TranslationChallengeOverlay
-        open={translationChallengeOpen}
-        initialLanguage={language}
-        onClose={() => setTranslationChallengeOpen(false)}
-        onPracticeRecorded={refreshProgress}
-      />
     </div>
   )
 }

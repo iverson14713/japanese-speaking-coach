@@ -65,18 +65,26 @@ import {
 } from '../utils/dailyAiPracticeCompletion'
 import { useRecordPracticeCompletion } from '../hooks/useRecordPracticeCompletion'
 import { clearDailyCoachHandoff } from '../utils/dailyCoachHandoffStorage'
+import { stopSpeaking } from '../utils/speechSynthesis'
 import type { DailyCoachHandoff } from '../types/dailyCoachHandoff'
+import type { CoachOpenIntent } from '../types/coachNavigation'
+import { CoachHubView } from './coach/CoachHubView'
+import { TranslationChallengeOverlay } from './translationChallenge/TranslationChallengeOverlay'
+import type { SpeakingChallengeId } from '../data/speakingChallenges'
 
 interface CoachPageProps {
   language: Language
   onLanguageChange: (language: Language) => void
   dailyHandoff: DailyCoachHandoff | null
   onDailyHandoffConsumed: () => void
+  coachOpenIntent: CoachOpenIntent
+  onCoachOpenIntentConsumed: () => void
 }
 
 type CoachPhase = 'welcome' | 'active' | 'ended'
 type ChatMode = 'custom' | 'topic' | null
 type VoiceInputMode = 'zh-coach' | 'practice-language'
+type CoachSurface = 'hub' | 'chat'
 
 function createWelcomeMessages(mode: CoachPracticeMode, lang: Language): ChatMessage[] {
   const text = mode === 'free-chat' ? COACH_FREE_CHAT_WELCOME[lang] : COACH_SCENARIO_WELCOME
@@ -100,6 +108,8 @@ export function CoachPage({
   onLanguageChange,
   dailyHandoff,
   onDailyHandoffConsumed,
+  coachOpenIntent,
+  onCoachOpenIntentConsumed,
 }: CoachPageProps) {
   const { openProUpgrade } = useProUpgrade()
   const { coachPlan, isPro, setDebugProStatus } = useProEntitlement()
@@ -136,6 +146,8 @@ export function CoachPage({
   const [passwordModalOpen, setPasswordModalOpen] = useState(false)
   const [devPanelOpen, setDevPanelOpen] = useState(false)
   const [aiSource, setAiSource] = useState<CoachAiSource>(() => getCoachAiSource())
+  const [surface, setSurface] = useState<CoachSurface>(() => (dailyHandoff ? 'chat' : 'hub'))
+  const [translationChallengeOpen, setTranslationChallengeOpen] = useState(false)
   const titleTapRef = useRef({ count: 0, lastTapAt: 0 })
   const inputRef = useRef<HTMLInputElement>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
@@ -722,10 +734,37 @@ export function CoachPage({
     }
     dailyHandoffKeyRef.current = handoffKey
 
+    setSurface('chat')
     void beginDailyPracticeScenario(dailyHandoff)
     clearDailyCoachHandoff()
     onDailyHandoffConsumed()
   }, [dailyHandoff, language, onDailyHandoffConsumed])
+
+  useEffect(() => {
+    if (coachOpenIntent !== 'translation-challenge') {
+      return
+    }
+
+    setSurface('hub')
+    setTranslationChallengeOpen(true)
+    onCoachOpenIntentConsumed()
+  }, [coachOpenIntent, onCoachOpenIntentConsumed])
+
+  const handleEnterAiPractice = useCallback(() => {
+    setSurface('chat')
+  }, [])
+
+  const handleBackToHub = useCallback(() => {
+    if (isListening) {
+      stopListening()
+    }
+    stopSpeaking()
+    setSurface('hub')
+  }, [isListening, stopListening])
+
+  const handleStartSpeakingChallenge = useCallback((_challengeId: SpeakingChallengeId) => {
+    setTranslationChallengeOpen(true)
+  }, [])
 
   useEffect(() => {
     if (phase !== 'ended' || !scenarioKey.startsWith('daily:')) {
@@ -1043,7 +1082,17 @@ export function CoachPage({
 
   return (
     <div className="coach-page">
-      <header className="coach-header coach-header--compact">
+      <header className={`coach-header coach-header--compact${surface === 'chat' ? ' coach-header--with-back' : ''}`}>
+        {surface === 'chat' ? (
+          <button
+            type="button"
+            className="coach-header__back"
+            onClick={handleBackToHub}
+            aria-label="返回挑戰中心"
+          >
+            ‹
+          </button>
+        ) : null}
         <h1
           className="coach-title coach-title--tappable"
           onClick={handleTitleTap}
@@ -1059,10 +1108,20 @@ export function CoachPage({
         >
           AI 口說教練
         </h1>
+        {surface === 'hub' ? (
+          <p className="coach-header__subtitle">AI 教練 + 口說挑戰中心</p>
+        ) : null}
       </header>
 
       <LanguageSelector selected={language} onSelect={onLanguageChange} variant="coach" />
 
+      {surface === 'hub' ? (
+        <CoachHubView
+          onEnterAiPractice={handleEnterAiPractice}
+          onStartChallenge={handleStartSpeakingChallenge}
+        />
+      ) : (
+        <>
       <div className="coach-practice-mode-bar" role="group" aria-label="練習模式">
         <button
           type="button"
@@ -1097,23 +1156,6 @@ export function CoachPage({
           測試模式 · 開發者設定
         </button>
       ) : null}
-
-      <DevModePasswordModal
-        open={passwordModalOpen}
-        onClose={() => setPasswordModalOpen(false)}
-        onSuccess={handlePasswordSuccess}
-      />
-
-      <DeveloperModePanel
-        open={devPanelOpen}
-        language={language}
-        aiSource={aiSource}
-        autoSpeakEnabled={autoSpeakEnabled}
-        isPro={isPro}
-        onClose={() => setDevPanelOpen(false)}
-        onTogglePro={() => setDebugProStatus(!isPro)}
-        onDisableDebugMode={handleDisableDebugMode}
-      />
 
       <div className="coach-energy-card" role="status">
         <div className="coach-energy-card__content">
@@ -1265,6 +1307,31 @@ export function CoachPage({
         </div>
         </div>
       </div>
+        </>
+      )}
+
+      <DevModePasswordModal
+        open={passwordModalOpen}
+        onClose={() => setPasswordModalOpen(false)}
+        onSuccess={handlePasswordSuccess}
+      />
+
+      <DeveloperModePanel
+        open={devPanelOpen}
+        language={language}
+        aiSource={aiSource}
+        autoSpeakEnabled={autoSpeakEnabled}
+        isPro={isPro}
+        onClose={() => setDevPanelOpen(false)}
+        onTogglePro={() => setDebugProStatus(!isPro)}
+        onDisableDebugMode={handleDisableDebugMode}
+      />
+
+      <TranslationChallengeOverlay
+        open={translationChallengeOpen}
+        initialLanguage={language}
+        onClose={() => setTranslationChallengeOpen(false)}
+      />
     </div>
   )
 }

@@ -34,6 +34,7 @@ import {
   startCoachPracticeFromDaily,
 } from './utils/dailyCoachHandoffStorage'
 import type { DailyCoachHandoff } from './types/dailyCoachHandoff'
+import type { CoachOpenIntent } from './types/coachNavigation'
 import { CrossPromoProvider } from './context/CrossPromoContext'
 
 const SPLASH_DURATION_MS = 1200
@@ -71,6 +72,7 @@ function MainApp() {
   const [dailyHandoff, setDailyHandoff] = useState<DailyCoachHandoff | null>(() =>
     loadDailyCoachHandoff(),
   )
+  const [coachOpenIntent, setCoachOpenIntent] = useState<CoachOpenIntent>(null)
   const [canStartAiPractice, setCanStartAiPractice] = useState(() =>
     canStartCoachSession(coachPlan, loadLanguagePreference()),
   )
@@ -126,6 +128,15 @@ function MainApp() {
     setDailyHandoff(null)
   }, [])
 
+  const handleOpenRecommendedChallenge = useCallback(() => {
+    setCoachOpenIntent('translation-challenge')
+    setActiveTab('coach')
+  }, [])
+
+  const handleCoachOpenIntentConsumed = useCallback(() => {
+    setCoachOpenIntent(null)
+  }, [])
+
   const finishOnboarding = useCallback(() => {
     markOnboardingSeen()
     setBootPhase('ready')
@@ -172,6 +183,7 @@ function MainApp() {
             language={language}
             onLanguageChange={handleLanguageChange}
             onStartDailyAiPractice={handleStartDailyAiPractice}
+            onOpenRecommendedChallenge={handleOpenRecommendedChallenge}
             onOpenProUpgrade={() => openProUpgrade('coach-limit')}
             canStartAiPractice={canStartAiPractice}
             isPro={isPro}
@@ -205,6 +217,8 @@ function MainApp() {
             onLanguageChange={handleLanguageChange}
             dailyHandoff={dailyHandoff}
             onDailyHandoffConsumed={handleDailyHandoffConsumed}
+            coachOpenIntent={coachOpenIntent}
+            onCoachOpenIntentConsumed={handleCoachOpenIntentConsumed}
           />
         </div>
 
