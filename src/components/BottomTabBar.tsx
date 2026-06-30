@@ -1,5 +1,8 @@
 import type { ComponentType } from 'react'
+import { CoachTabIcon } from './icons/CoachTabIcon'
 import { DialogueTabIcon } from './icons/DialogueTabIcon'
+import { LibraryTabIcon } from './icons/LibraryTabIcon'
+import { TodayTabIcon } from './icons/TodayTabIcon'
 
 export type AppTab = 'today' | 'library' | 'dialogue' | 'coach'
 
@@ -13,15 +16,14 @@ type TabIconComponent = ComponentType<{ className?: string }>
 interface TabConfig {
   id: AppTab
   label: string
-  icon?: string
-  Icon?: TabIconComponent
+  Icon: TabIconComponent
 }
 
 const TABS: TabConfig[] = [
-  { id: 'today', label: '今日', icon: '🔥' },
-  { id: 'library', label: '句庫', icon: '📖' },
+  { id: 'today', label: '今日', Icon: TodayTabIcon },
+  { id: 'library', label: '句庫', Icon: LibraryTabIcon },
   { id: 'dialogue', label: '情境', Icon: DialogueTabIcon },
-  { id: 'coach', label: '教練', icon: '🎧' },
+  { id: 'coach', label: '教練', Icon: CoachTabIcon },
 ]
 
 export function BottomTabBar({ activeTab, onTabChange }: BottomTabBarProps) {
@@ -35,19 +37,13 @@ export function BottomTabBar({ activeTab, onTabChange }: BottomTabBarProps) {
           <button
             key={tab.id}
             type="button"
-            className={`bottom-tab${isActive ? ' bottom-tab--active' : ''}${tab.id === 'dialogue' ? ' bottom-tab--dialogue' : ''}`}
+            className={`bottom-tab${isActive ? ' bottom-tab--active' : ''}`}
             data-tab={tab.id}
             aria-current={isActive ? 'page' : undefined}
             onClick={() => onTabChange(tab.id)}
           >
             <span className="bottom-tab-inner">
-              {tab.icon ? (
-                <span className="bottom-tab-icon" aria-hidden="true">
-                  {tab.icon}
-                </span>
-              ) : TabIcon ? (
-                <TabIcon className="bottom-tab-icon bottom-tab-icon--svg" />
-              ) : null}
+              <TabIcon className="bottom-tab-icon bottom-tab-icon--svg" />
               <span className="bottom-tab-label">{tab.label}</span>
             </span>
           </button>
