@@ -1,6 +1,8 @@
 import type { Language } from '../data/types'
 import { countScriptTurns, type DialogueScript } from '../data/dialogues'
 import { SpeakButton } from './SpeakButton'
+import { FavoriteButton } from './FavoriteButton'
+import { buildFavoriteFromDialogueTurn } from '../utils/favoriteSentenceBuilders'
 
 interface DialogueScriptCardProps {
   script: DialogueScript
@@ -46,6 +48,10 @@ export function DialogueScriptCard({
                     key={`${script.id}-${section.title}-${turnIndex}`}
                     className={`dialogue-turn dialogue-turn--${turn.speaker}`}
                   >
+                    <FavoriteButton
+                      favorite={buildFavoriteFromDialogueTurn(script, section.title, turnIndex, turn)}
+                      className="favorite-button--dialogue-turn"
+                    />
                     <p className="dialogue-turn-role">{turn.speakerLabelZh}</p>
                     <div className="dialogue-turn-text-row">
                       <p className="dialogue-turn-text">{turn.text}</p>

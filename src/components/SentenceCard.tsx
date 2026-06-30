@@ -6,6 +6,8 @@ import {
   getSentenceDisplayPronunciation,
 } from '../utils/sentenceDisplay'
 import { speakText } from '../utils/speechSynthesis'
+import { buildFavoriteFromSentence } from '../utils/favoriteSentenceBuilders'
+import { FavoriteButton } from './FavoriteButton'
 
 interface SentenceCardProps {
   sentence: Sentence
@@ -24,6 +26,11 @@ export function SentenceCard({ sentence, language, mode = 'default' }: SentenceC
       className={`sentence-card${isDaily ? ' sentence-card--daily' : ''}`}
       aria-label="練習句子"
     >
+      <FavoriteButton
+        favorite={buildFavoriteFromSentence(sentence)}
+        className="favorite-button--sentence-card"
+      />
+
       {isDaily ? (
         <div className="sentence-card__header">
           <span className="sentence-card__header-icon" aria-hidden="true">

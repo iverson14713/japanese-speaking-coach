@@ -20,6 +20,8 @@ import { scoreTranslationChallenge } from '../../utils/translationChallengeScore
 import { recordTranslationChallengeRound } from '../../utils/translationChallengeStorage'
 import { speakText, stopSpeaking } from '../../utils/speechSynthesis'
 import { LanguageSelector } from '../LanguageSelector'
+import { FavoriteButton } from '../FavoriteButton'
+import { buildFavoriteFromChallengeQuestion } from '../../utils/favoriteSentenceBuilders'
 
 type GamePhase = 'setup' | 'prep' | 'recording' | 'result' | 'summary'
 
@@ -395,7 +397,13 @@ export function TranslationChallengeOverlay({
                   {currentResult.transcript || '（沒有辨識到內容）'}
                 </p>
 
-                <p className="translation-challenge-result__label">標準答案</p>
+                <div className="translation-challenge-result__answer-row">
+                  <p className="translation-challenge-result__label">標準答案</p>
+                  <FavoriteButton
+                    favorite={buildFavoriteFromChallengeQuestion(currentQuestion)}
+                    className="favorite-button--challenge-result"
+                  />
+                </div>
                 <p className="translation-challenge-result__answer">{currentQuestion.answer}</p>
                 {currentQuestion.romanization ? (
                   <p className="translation-challenge-result__romanization">

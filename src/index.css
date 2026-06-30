@@ -220,6 +220,228 @@ body {
   opacity: 0.85;
 }
 
+.library-segment {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 3px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+}
+
+.library-segment__item {
+  flex: 1;
+  min-height: 34px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.library-segment__item--active {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
+.library-list-main {
+  padding-top: 4px;
+}
+
+.library-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Favorite Button ── */
+
+.favorite-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color 0.15s ease, transform 0.12s ease, background 0.15s ease;
+}
+
+.favorite-button:active {
+  transform: scale(0.94);
+}
+
+.favorite-button__icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.favorite-button--active {
+  color: #e87898;
+}
+
+.favorite-button--active .favorite-button__icon {
+  text-shadow: 0 0 0 currentColor;
+}
+
+.favorite-button--sentence-card {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+}
+
+.sentence-card--daily .favorite-button--sentence-card {
+  top: 12px;
+  right: 12px;
+}
+
+.favorite-button--dialogue-turn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+.favorite-button--challenge-result {
+  width: 24px;
+  height: 24px;
+}
+
+.favorite-button--card {
+  position: static;
+}
+
+.favorites-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 28px 16px;
+  text-align: center;
+}
+
+.favorites-empty__icon {
+  font-size: 1.6rem;
+  color: #e8c4cf;
+  line-height: 1;
+}
+
+.favorites-empty__title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.favorites-empty__text {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  max-width: 260px;
+}
+
+.favorite-sentence-card {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-soft);
+}
+
+.favorite-sentence-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.favorite-sentence-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.favorite-sentence-card__lang,
+.favorite-sentence-card__scenario {
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+}
+
+.favorite-sentence-card__answer {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.favorite-sentence-card__romanization {
+  margin: 0 0 4px;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  word-break: break-word;
+}
+
+.favorite-sentence-card__chinese {
+  margin: 0 0 10px;
+  font-size: 0.86rem;
+  color: var(--color-accent);
+  line-height: 1.45;
+}
+
+.favorite-sentence-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.favorite-sentence-card__practice {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg);
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.favorite-sentence-card__practice-panel {
+  margin-top: 10px;
+}
+
+.translation-challenge-result__answer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.translation-challenge-result__answer-row .translation-challenge-result__label {
+  margin: 0;
+}
+
 .language-picker-trigger {
   width: 100%;
   padding: 8px 12px;
@@ -477,6 +699,7 @@ body {
 /* ── Sentence Card ── */
 
 .sentence-card {
+  position: relative;
   background: var(--color-bg-card);
   border-radius: var(--radius-lg);
   padding: 16px 16px 14px;
@@ -2442,7 +2665,8 @@ body {
 }
 
 .dialogue-turn {
-  padding: 10px 12px;
+  position: relative;
+  padding: 10px 36px 10px 12px;
   border-radius: var(--radius-sm);
 }
 
