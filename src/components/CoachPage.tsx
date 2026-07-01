@@ -75,6 +75,7 @@ import { CoachHubView } from './coach/CoachHubView'
 import { CoachCompletionUpgradeCard } from './pro/CoachCompletionUpgradeCard'
 import { FavoriteReviewOverlay } from './pro/FavoriteReviewOverlay'
 import { WeaknessAnalysisPanel } from './pro/WeaknessAnalysisPanel'
+import { QuickSpeakChallengeOverlay } from './quickSpeakChallenge/QuickSpeakChallengeOverlay'
 import { TranslationChallengeOverlay } from './translationChallenge/TranslationChallengeOverlay'
 import type { SpeakingChallengeId } from '../data/speakingChallenges'
 import { getFavoriteSentencesByLanguage } from '../utils/favoriteSentenceStorage'
@@ -159,6 +160,7 @@ export function CoachPage({
   const [devPanelOpen, setDevPanelOpen] = useState(false)
   const [aiSource, setAiSource] = useState<CoachAiSource>(() => getCoachAiSource())
   const [surface, setSurface] = useState<CoachSurface>(() => (dailyHandoff ? 'chat' : 'hub'))
+  const [quickSpeakOpen, setQuickSpeakOpen] = useState(false)
   const [translationChallengeOpen, setTranslationChallengeOpen] = useState(false)
   const [weaknessPanelOpen, setWeaknessPanelOpen] = useState(false)
   const [favoriteReviewOpen, setFavoriteReviewOpen] = useState(false)
@@ -799,7 +801,7 @@ export function CoachPage({
 
     if (coachOpenIntent === 'translation-challenge') {
       setSurface('hub')
-      setTranslationChallengeOpen(true)
+      setQuickSpeakOpen(true)
       onCoachOpenIntentConsumed()
       return
     }
@@ -831,7 +833,13 @@ export function CoachPage({
         openProUpgrade('advanced-challenge')
         return
       }
-      setTranslationChallengeOpen(true)
+      if (challengeId === 'quick-speak') {
+        setQuickSpeakOpen(true)
+        return
+      }
+      if (challengeId === 'translation') {
+        setTranslationChallengeOpen(true)
+      }
     },
     [debugMode, isPro, openProUpgrade],
   )
@@ -1457,6 +1465,12 @@ export function CoachPage({
         onClose={() => setDevPanelOpen(false)}
         onTogglePro={() => setDebugProStatus(!isPro)}
         onDisableDebugMode={handleDisableDebugMode}
+      />
+
+      <QuickSpeakChallengeOverlay
+        open={quickSpeakOpen}
+        initialLanguage={language}
+        onClose={() => setQuickSpeakOpen(false)}
       />
 
       <TranslationChallengeOverlay

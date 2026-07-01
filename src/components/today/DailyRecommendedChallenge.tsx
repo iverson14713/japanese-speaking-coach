@@ -11,8 +11,8 @@ export function DailyRecommendedChallenge({ onStart }: DailyRecommendedChallenge
           ⚡
         </span>
         <span className="daily-recommended-challenge__copy">
-          <span className="daily-recommended-challenge__title">3 秒開口挑戰</span>
-          <span className="daily-recommended-challenge__desc">看到中文，倒數後直接開講</span>
+          <span className="daily-recommended-challenge__title">5 秒開口挑戰</span>
+          <span className="daily-recommended-challenge__desc">看到中文，5 秒內說出外語</span>
         </span>
         <span className="daily-recommended-challenge__chevron" aria-hidden="true">
           ›

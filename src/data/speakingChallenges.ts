@@ -13,8 +13,8 @@ export interface SpeakingChallengeOption {
 export const SPEAKING_CHALLENGES: SpeakingChallengeOption[] = [
   {
     id: 'quick-speak',
-    title: '3 秒開口挑戰',
-    subtitle: '看到中文，倒數後直接開講',
+    title: '5 秒開口挑戰',
+    subtitle: '看到中文，5 秒內說出外語',
     icon: '⚡',
     status: 'available',
   },

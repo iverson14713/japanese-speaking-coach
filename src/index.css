@@ -2304,6 +2304,18 @@ body {
   color: var(--color-primary-dark);
 }
 
+.translation-challenge-result__timeup {
+  margin: 0 0 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  text-align: center;
+}
+
+.quick-speak-answering .translation-challenge-recording {
+  margin-top: 8px;
+}
+
 .translation-challenge-result__feedback {
   margin: 0;
   text-align: center;
