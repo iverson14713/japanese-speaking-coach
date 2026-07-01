@@ -1131,7 +1131,7 @@ body {
 }
 
 .bottom-tab--active .bottom-tab-inner {
-  background: rgba(237, 247, 241, 0.95);
+  background: var(--color-accent-light);
 }
 
 .bottom-tab--active .bottom-tab-icon {
@@ -1142,17 +1142,8 @@ body {
   opacity: 1;
 }
 
-.bottom-tab--active[data-tab='dialogue'] .bottom-tab-inner {
-  background: rgba(204, 232, 214, 0.98);
-}
-
-.bottom-tab--active[data-tab='dialogue'] .bottom-tab-label {
-  color: #256647;
-  font-weight: 700;
-}
-
 .bottom-tab--active .bottom-tab-label {
-  color: #4f8f6e;
+  color: #3a6b52;
   font-weight: 700;
 }
 
