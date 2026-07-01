@@ -1115,10 +1115,10 @@ body {
 
 .bottom-tab-icon--svg {
   display: block;
-  width: 1.45rem;
-  height: 1.45rem;
-  color: #587568;
-  opacity: 0.88;
+  width: 1.5rem;
+  height: 1.5rem;
+  opacity: 0.84;
+  transition: opacity 0.18s ease, transform 0.12s ease;
 }
 
 .bottom-tab-label {
@@ -1139,17 +1139,11 @@ body {
 }
 
 .bottom-tab--active .bottom-tab-icon--svg {
-  color: #4f8f6e;
   opacity: 1;
 }
 
 .bottom-tab--active[data-tab='dialogue'] .bottom-tab-inner {
   background: rgba(204, 232, 214, 0.98);
-}
-
-.bottom-tab--active[data-tab='dialogue'] .bottom-tab-icon--svg {
-  color: #256647;
-  opacity: 1;
 }
 
 .bottom-tab--active[data-tab='dialogue'] .bottom-tab-label {
