@@ -2,18 +2,28 @@ interface DialogueTabIconProps {
   className?: string
 }
 
-/** map.fill — bold folded map for travel scenarios */
+/**
+ * map.fill style — wide folded travel map (horizontal, not bookmark-like).
+ */
 export function DialogueTabIcon({ className }: DialogueTabIconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
         fill="currentColor"
-        d="M4.75 4.25A2.5 2.5 0 0 1 7.25 1.75H9.5L12 4.35 14.5 1.75h2.25A2.5 2.5 0 0 1 19.25 4.25V19l-7.25-3.35L4.75 19V4.25Z"
+        d="M4.25 7.75 12 4.75l7.75 3V16.25L12 19.25 4.25 16.25V7.75Z"
       />
       <path
         fill="currentColor"
-        fillOpacity="0.38"
-        d="M12 4.35V19l7.25 3.35V4.25L14.5 1.75 12 4.35Z"
+        fillOpacity="0.42"
+        d="M12 4.75l7.75 3V16.25L12 19.25V4.75Z"
+      />
+      <path
+        stroke="currentColor"
+        strokeWidth="1.65"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeOpacity="0.55"
+        d="M7.25 10.25h2.35l1.15 1.55 2.55-2.9"
       />
     </svg>
   )
