@@ -3,6 +3,8 @@ export type {
   ChatMessage,
   ChatSessionInfo,
   CoachAiSource,
+  CoachFeedback,
+  CoachInputMode,
   CoachLimits,
   CoachPlan,
   CoachPracticeMode,

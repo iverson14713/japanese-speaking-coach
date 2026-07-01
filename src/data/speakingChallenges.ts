@@ -21,7 +21,7 @@ export const SPEAKING_CHALLENGES: SpeakingChallengeOption[] = [
   {
     id: 'translation',
     title: '開口翻譯挑戰',
-    subtitle: '中翻外語，一輪 5 題限時練習',
+    subtitle: '中翻外語，一輪 5 題限時練習（Pro）',
     icon: '🎮',
     status: 'available',
   },

@@ -1,4 +1,5 @@
 import type { FavoriteSentence, FavoriteSentenceInput } from '../types/favoriteSentence'
+import { FREE_FAVORITE_LIMIT } from '../constants/proEntitlements'
 import { showToast } from './toast'
 
 const STORAGE_KEY = 'travel-speaking-coach-favorite-sentences'
@@ -76,11 +77,30 @@ export function isFavoriteSentence(id: string): boolean {
   return loadPayload().items.some((item) => item.id === id)
 }
 
-export function addFavoriteSentence(input: FavoriteSentenceInput): FavoriteSentence {
+export function getFavoriteSentenceCount(): number {
+  return loadPayload().items.length
+}
+
+export function canAddFavoriteSentence(isPro: boolean): boolean {
+  if (isPro) {
+    return true
+  }
+  return getFavoriteSentenceCount() < FREE_FAVORITE_LIMIT
+}
+
+export function addFavoriteSentence(
+  input: FavoriteSentenceInput,
+  options?: { isPro?: boolean },
+): FavoriteSentence | 'limit-reached' {
   const payload = loadPayload()
   const existing = payload.items.find((item) => item.id === input.id)
   if (existing) {
     return existing
+  }
+
+  const isPro = options?.isPro ?? false
+  if (!canAddFavoriteSentence(isPro)) {
+    return 'limit-reached'
   }
 
   const next: FavoriteSentence = {
@@ -106,11 +126,17 @@ export function removeFavoriteSentence(id: string): void {
   showToast('已取消收藏')
 }
 
-export function toggleFavoriteSentence(input: FavoriteSentenceInput): boolean {
+export function toggleFavoriteSentence(
+  input: FavoriteSentenceInput,
+  options?: { isPro?: boolean },
+): boolean | 'limit-reached' {
   if (isFavoriteSentence(input.id)) {
     removeFavoriteSentence(input.id)
     return false
   }
-  addFavoriteSentence(input)
+  const result = addFavoriteSentence(input, options)
+  if (result === 'limit-reached') {
+    return 'limit-reached'
+  }
   return true
 }

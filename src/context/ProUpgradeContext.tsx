@@ -1,7 +1,14 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import { ProUpgradeModal } from '../components/ProUpgradeModal'
 
-export type ProUpgradeReason = 'coach-limit' | 'pro-feature' | 'favorites-limit'
+export type ProUpgradeReason =
+  | 'coach-limit'
+  | 'pro-feature'
+  | 'favorites-limit'
+  | 'weakness-analysis'
+  | 'favorite-review'
+  | 'scenario-roleplay'
+  | 'advanced-challenge'
 
 interface ProUpgradeContextValue {
   openProUpgrade: (reason?: ProUpgradeReason) => void

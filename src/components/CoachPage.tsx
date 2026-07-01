@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { Language } from '../data/types'
 import { LANGUAGE_LABELS, SPEECH_LANG } from '../data/types'
 import {
   COACH_CHAT_INPUT_PLACEHOLDERS,
   COACH_FREE_CHAT_WELCOME,
-  COACH_LIMITS,
   COACH_SCENARIO_WELCOME,
   type ChatMessage,
   type ChatSessionInfo,
@@ -25,10 +24,13 @@ import {
   startTopicChat,
 } from '../services/ai'
 import {
-  canStartCoachSession,
-  consumeCoachSession,
+  canUseCoachApi,
+  getCoachDailyUsage,
+  getCoachUsageDisplay,
   getMaxTurnsForPlan,
-  getRemainingCoachSessions,
+  recordCoachTurnSuccess,
+  shouldEndCoachSessionAfterTurn,
+  type CoachUsageDisplayInfo,
 } from '../utils/coachUsageStorage'
 import {
   disableAiCoachDebugMode,
@@ -68,9 +70,19 @@ import { clearDailyCoachHandoff } from '../utils/dailyCoachHandoffStorage'
 import { stopSpeaking } from '../utils/speechSynthesis'
 import type { DailyCoachHandoff } from '../types/dailyCoachHandoff'
 import type { CoachOpenIntent } from '../types/coachNavigation'
+import type { ProUpgradeReason } from '../context/ProUpgradeContext'
 import { CoachHubView } from './coach/CoachHubView'
+import { CoachCompletionUpgradeCard } from './pro/CoachCompletionUpgradeCard'
+import { FavoriteReviewOverlay } from './pro/FavoriteReviewOverlay'
+import { WeaknessAnalysisPanel } from './pro/WeaknessAnalysisPanel'
 import { TranslationChallengeOverlay } from './translationChallenge/TranslationChallengeOverlay'
 import type { SpeakingChallengeId } from '../data/speakingChallenges'
+import { getFavoriteSentencesByLanguage } from '../utils/favoriteSentenceStorage'
+import {
+  dismissCoachCompletionUpgradeToday,
+  isCoachCompletionUpgradeDismissedToday,
+} from '../utils/coachCompletionPromptStorage'
+import { buildWeaknessAnalysis } from '../utils/weaknessAnalysis'
 
 interface CoachPageProps {
   language: Language
@@ -118,8 +130,8 @@ export function CoachPage({
   const initialCoachStateRef = useRef(readInitialCoachState(language, initialModeRef.current))
   const initialCoach = initialCoachStateRef.current
 
-  const [remainingSessions, setRemainingSessions] = useState(() =>
-    getRemainingCoachSessions(plan, language),
+  const [usageDisplay, setUsageDisplay] = useState<CoachUsageDisplayInfo>(() =>
+    getCoachUsageDisplay(plan, language),
   )
   const [phase, setPhase] = useState<CoachPhase>(initialCoach.phase)
   const [practiceMode, setPracticeMode] = useState<CoachPracticeMode>(initialCoach.practiceMode)
@@ -148,6 +160,9 @@ export function CoachPage({
   const [aiSource, setAiSource] = useState<CoachAiSource>(() => getCoachAiSource())
   const [surface, setSurface] = useState<CoachSurface>(() => (dailyHandoff ? 'chat' : 'hub'))
   const [translationChallengeOpen, setTranslationChallengeOpen] = useState(false)
+  const [weaknessPanelOpen, setWeaknessPanelOpen] = useState(false)
+  const [favoriteReviewOpen, setFavoriteReviewOpen] = useState(false)
+  const [showCompletionUpgrade, setShowCompletionUpgrade] = useState(false)
   const titleTapRef = useRef({ count: 0, lastTapAt: 0 })
   const inputRef = useRef<HTMLInputElement>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
@@ -221,16 +236,29 @@ export function CoachPage({
     loading,
   })
 
-  const maxTurns = getMaxTurnsForPlan(plan)
-  const dailyLimit = COACH_LIMITS[plan].dailySessions
-  const scenarioEnded = phase === 'ended' || (phase === 'active' && userTurns >= maxTurns)
-  const isDailyLimitReached = !debugMode && !canStartCoachSession(plan, language)
-  const shouldPromptProUpgrade =
-    !debugMode &&
-    !isPro &&
-    ((isDailyLimitReached && phase === 'welcome') ||
-      (practiceMode === 'scenario-practice' && scenarioEnded))
-  const inputDisabled = loading
+  const maxTurnsForApi = getMaxTurnsForPlan(plan)
+  const weaknessAnalysis = useMemo(() => buildWeaknessAnalysis(language), [language, messages, usageDisplay])
+  const favoriteSentences = useMemo(
+    () => getFavoriteSentencesByLanguage(language),
+    [language, weaknessPanelOpen, favoriteReviewOpen],
+  )
+
+  useEffect(() => {
+    if (
+      isPro ||
+      debugMode ||
+      isCoachCompletionUpgradeDismissedToday() ||
+      usageDisplay.kind !== 'free-exhausted'
+    ) {
+      setShowCompletionUpgrade(false)
+      return
+    }
+    setShowCompletionUpgrade(surface === 'chat')
+  }, [isPro, debugMode, usageDisplay.kind, surface])
+  const isCoachLimitReached = !debugMode && !canUseCoachApi(plan, language)
+  const shouldPromptProUpgrade = !debugMode && !isPro && isCoachLimitReached
+  const shouldShowProDailyLimit = !debugMode && isPro && usageDisplay.kind === 'pro-exhausted'
+  const inputDisabled = loading || shouldShowProDailyLimit
 
   const promptProUpgradeIfNeeded = useCallback((): boolean => {
     if (!shouldPromptProUpgrade) {
@@ -247,8 +275,20 @@ export function CoachPage({
   }, [])
 
   const refreshUsage = useCallback(() => {
-    setRemainingSessions(getRemainingCoachSessions(plan, language))
+    setUsageDisplay(getCoachUsageDisplay(plan, language))
   }, [plan, language])
+
+  const guardCoachAiAccess = useCallback((): boolean => {
+    if (debugMode || canUseCoachApi(plan, language)) {
+      return true
+    }
+    if (!isPro) {
+      openProUpgrade('coach-limit')
+    }
+    return false
+  }, [debugMode, plan, language, isPro, openProUpgrade])
+
+  const blockCoachAiIfNeeded = useCallback((): boolean => !guardCoachAiAccess(), [guardCoachAiAccess])
 
   const refreshAiSource = useCallback(() => {
     setAiSource(getCoachAiSource())
@@ -449,6 +489,11 @@ export function CoachPage({
       return
     }
 
+    if (mode === 'scenario-practice' && !isPro && !debugMode) {
+      openProUpgrade('scenario-roleplay')
+      return
+    }
+
     // Save current mode chat before switching.
     persistCoachChat({ mode: practiceMode })
     saveCoachPracticeModePreference(language, mode)
@@ -516,15 +561,11 @@ export function CoachPage({
     refreshUsage()
   }
 
-  function requireSession(): boolean {
+  function requireCoachApiAccess(): boolean {
     if (isAiCoachDebugMode()) {
       return true
     }
-    if (!canStartCoachSession(plan, language)) {
-      openProUpgrade('coach-limit')
-      return false
-    }
-    return true
+    return guardCoachAiAccess()
   }
 
   function getDialogueHint(turnIndex: number) {
@@ -538,6 +579,10 @@ export function CoachPage({
   }
 
   async function beginDailyPracticeScenario(handoff: DailyCoachHandoff) {
+    if (!requireCoachApiAccess()) {
+      return
+    }
+
     setLoading(true)
     setError(null)
     shouldAutoScrollRef.current = true
@@ -555,7 +600,6 @@ export function CoachPage({
       const result = await startDailyPracticeScenario(handoff)
 
       if (!handoff.sessionAlreadyConsumed && !isAiCoachDebugMode()) {
-        consumeCoachSession(handoff.language)
         refreshUsage()
       }
 
@@ -618,7 +662,12 @@ export function CoachPage({
   }
 
   async function beginCustomScenario(scenario: string) {
-    if (!requireSession()) {
+    if (!isPro && !debugMode) {
+      openProUpgrade('scenario-roleplay')
+      return
+    }
+
+    if (!requireCoachApiAccess()) {
       return
     }
 
@@ -631,7 +680,6 @@ export function CoachPage({
 
     try {
       const result = await startCustomScenario({ language, scenario })
-      consumeCoachSession(language)
       refreshUsage()
 
       const info: ChatSessionInfo = {
@@ -671,7 +719,12 @@ export function CoachPage({
   }
 
   async function beginTopicChat() {
-    if (!requireSession()) {
+    if (!isPro && !debugMode) {
+      openProUpgrade('scenario-roleplay')
+      return
+    }
+
+    if (!requireCoachApiAccess()) {
       return
     }
 
@@ -684,7 +737,6 @@ export function CoachPage({
 
     try {
       const result = await startTopicChat({ language })
-      consumeCoachSession(language)
       refreshUsage()
 
       const info: ChatSessionInfo = {
@@ -741,14 +793,25 @@ export function CoachPage({
   }, [dailyHandoff, language, onDailyHandoffConsumed])
 
   useEffect(() => {
-    if (coachOpenIntent !== 'translation-challenge') {
+    if (!coachOpenIntent) {
       return
     }
 
-    setSurface('hub')
-    setTranslationChallengeOpen(true)
-    onCoachOpenIntentConsumed()
-  }, [coachOpenIntent, onCoachOpenIntentConsumed])
+    if (coachOpenIntent === 'translation-challenge') {
+      setSurface('hub')
+      setTranslationChallengeOpen(true)
+      onCoachOpenIntentConsumed()
+      return
+    }
+
+    if (coachOpenIntent.type === 'scenario-roleplay') {
+      setSurface('chat')
+      saveCoachPracticeModePreference(language, 'scenario-practice')
+      setPracticeMode('scenario-practice')
+      void beginCustomScenario(coachOpenIntent.scenarioPrompt)
+      onCoachOpenIntentConsumed()
+    }
+  }, [coachOpenIntent, language, onCoachOpenIntentConsumed])
 
   const handleEnterAiPractice = useCallback(() => {
     setSurface('chat')
@@ -762,9 +825,23 @@ export function CoachPage({
     setSurface('hub')
   }, [isListening, stopListening])
 
-  const handleStartSpeakingChallenge = useCallback((_challengeId: SpeakingChallengeId) => {
-    setTranslationChallengeOpen(true)
-  }, [])
+  const handleStartSpeakingChallenge = useCallback(
+    (challengeId: SpeakingChallengeId) => {
+      if (!isPro && !debugMode && challengeId === 'translation') {
+        openProUpgrade('advanced-challenge')
+        return
+      }
+      setTranslationChallengeOpen(true)
+    },
+    [debugMode, isPro, openProUpgrade],
+  )
+
+  const handleOpenProUpgrade = useCallback(
+    (reason?: ProUpgradeReason) => {
+      openProUpgrade(reason ?? 'pro-feature')
+    },
+    [openProUpgrade],
+  )
 
   useEffect(() => {
     if (phase !== 'ended' || !scenarioKey.startsWith('daily:')) {
@@ -785,6 +862,10 @@ export function CoachPage({
   async function handleFreeChatSend(text: string) {
     const scenarioRequest = detectScenarioStartRequest(text)
     if (scenarioRequest) {
+      if (!isPro && !debugMode) {
+        openProUpgrade('scenario-roleplay')
+        return
+      }
       if (scenarioRequest.type === 'topic') {
         await beginTopicChat()
       } else {
@@ -793,7 +874,11 @@ export function CoachPage({
       return
     }
 
-    if (phase === 'welcome' && !requireSession()) {
+    if (phase === 'welcome' && !requireCoachApiAccess()) {
+      return
+    }
+
+    if (blockCoachAiIfNeeded()) {
       return
     }
 
@@ -814,8 +899,6 @@ export function CoachPage({
       : [...messages, userMessage]
 
     if (isFirstMessage) {
-      consumeCoachSession(language)
-      refreshUsage()
       setPhase('active')
     }
 
@@ -830,6 +913,7 @@ export function CoachPage({
         history: apiHistory,
         userMessage: text,
         learningSummary,
+        inputMode: voiceInputMode,
       })
 
       setMessages((current) => {
@@ -837,11 +921,12 @@ export function CoachPage({
         ...current,
         {
           role: 'assistant',
-          text: reply.reply,
+          text: reply.coachFeedback?.followUp ?? reply.reply,
           meaningZh: reply.replyMeaningZh,
           pronunciation: reply.replyPronunciation,
           coachingZh: reply.coachingZh,
           guidanceZh: reply.guidanceZh,
+          coachFeedback: reply.coachFeedback,
           variant: 'dialogue',
           createdAt: Date.now(),
           mode: 'free-chat',
@@ -851,6 +936,12 @@ export function CoachPage({
         return next
       })
       queueScrollToBottom('smooth')
+      recordCoachTurnSuccess(plan, language)
+      refreshUsage()
+      const usageAfterTurn = getCoachDailyUsage(language)
+      if (shouldEndCoachSessionAfterTurn(plan, language, usageAfterTurn.currentFreeSessionTurns)) {
+        setPhase('ended')
+      }
       if (isFirstMessage) {
         recordPractice()
       }
@@ -872,7 +963,7 @@ export function CoachPage({
       return
     }
 
-    if (promptProUpgradeIfNeeded()) {
+    if (shouldShowProDailyLimit || blockCoachAiIfNeeded()) {
       return
     }
 
@@ -892,17 +983,29 @@ export function CoachPage({
     if (phase === 'welcome') {
       const scenarioRequest = detectScenarioStartRequest(text)
       if (scenarioRequest?.type === 'topic') {
+        if (!isPro && !debugMode) {
+          openProUpgrade('scenario-roleplay')
+          return
+        }
         await beginTopicChat()
+        return
+      }
+      if (!isPro && !debugMode) {
+        openProUpgrade('scenario-roleplay')
         return
       }
       await beginCustomScenario(text)
       return
     }
 
-    if (phase === 'ended' || userTurns >= maxTurns || !sessionInfo) {
+    if (phase === 'ended' || !sessionInfo) {
       if (promptProUpgradeIfNeeded()) {
         return
       }
+      return
+    }
+
+    if (blockCoachAiIfNeeded()) {
       return
     }
 
@@ -930,13 +1033,14 @@ export function CoachPage({
         scenario: scenarioKey,
         roleLabelZh: sessionInfo.roleLabelZh,
         goalZh: sessionInfo.goalZh,
-        maxTurns,
+        maxTurns: maxTurnsForApi,
         currentTurn: nextUserTurn,
         plan,
         history: apiHistory,
         userMessage: text,
         practiceMode: 'scenario-practice',
         learningSummary,
+        inputMode: voiceInputMode,
       })
 
       setMessages((current) => {
@@ -944,11 +1048,12 @@ export function CoachPage({
           ...current,
           {
           role: 'assistant',
-          text: reply.reply,
+          text: reply.coachFeedback?.followUp ?? reply.reply,
           meaningZh: reply.replyMeaningZh,
           pronunciation: reply.replyPronunciation,
           coachingZh: reply.coachingZh,
           guidanceZh: reply.guidanceZh,
+          coachFeedback: reply.coachFeedback,
           variant: 'dialogue',
           hint: reply.hint ?? getDialogueHint(nextUserTurn),
           createdAt: Date.now(),
@@ -960,7 +1065,10 @@ export function CoachPage({
       })
       queueScrollToBottom('smooth')
 
-      if (nextUserTurn >= maxTurns) {
+      recordCoachTurnSuccess(plan, language)
+      refreshUsage()
+
+      if (shouldEndCoachSessionAfterTurn(plan, language, nextUserTurn)) {
         setPhase('ended')
         recordPractice()
       }
@@ -978,7 +1086,7 @@ export function CoachPage({
   async function handleRequestNaturalCorrection(
     userMessageIndex: number,
   ): Promise<SentenceCorrectionResult | null> {
-    if (promptProUpgradeIfNeeded()) {
+    if (promptProUpgradeIfNeeded() || blockCoachAiIfNeeded()) {
       return null
     }
 
@@ -1048,7 +1156,7 @@ export function CoachPage({
       return
     }
 
-    if (promptProUpgradeIfNeeded()) {
+    if (shouldShowProDailyLimit || blockCoachAiIfNeeded()) {
       return
     }
 
@@ -1069,12 +1177,14 @@ export function CoachPage({
     startListening()
   }
 
-  const inputPlaceholder = shouldPromptProUpgrade
-    ? '今日次數已用完'
-    : COACH_CHAT_INPUT_PLACEHOLDERS[language]
+  const inputPlaceholder = shouldShowProDailyLimit
+    ? '今日 Pro AI 回合已用完'
+    : shouldPromptProUpgrade
+      ? '今日免費實戰已用完'
+      : COACH_CHAT_INPUT_PLACEHOLDERS[language]
 
   function handleQuickStartTopic() {
-    if (promptProUpgradeIfNeeded()) {
+    if (shouldShowProDailyLimit || blockCoachAiIfNeeded()) {
       return
     }
     void beginTopicChat()
@@ -1117,8 +1227,12 @@ export function CoachPage({
 
       {surface === 'hub' ? (
         <CoachHubView
+          isPro={isPro}
           onEnterAiPractice={handleEnterAiPractice}
           onStartChallenge={handleStartSpeakingChallenge}
+          onOpenProUpgrade={handleOpenProUpgrade}
+          onOpenWeaknessAnalysis={() => setWeaknessPanelOpen(true)}
+          onOpenFavoriteReview={() => setFavoriteReviewOpen(true)}
         />
       ) : (
         <>
@@ -1136,14 +1250,14 @@ export function CoachPage({
         </button>
         <button
           type="button"
-          className={`coach-practice-mode${practiceMode === 'scenario-practice' ? ' coach-practice-mode--active' : ''}`}
+          className={`coach-practice-mode${practiceMode === 'scenario-practice' ? ' coach-practice-mode--active' : ''}${!isPro && !debugMode ? ' coach-practice-mode--locked' : ''}`}
           onClick={() => handlePracticeModeChange('scenario-practice')}
           disabled={loading || isListening}
         >
           <span className="coach-practice-mode__icon" aria-hidden="true">
             💼
           </span>
-          情境練習
+          情境練習{!isPro && !debugMode ? ' · Pro' : ''}
         </button>
       </div>
 
@@ -1163,13 +1277,12 @@ export function CoachPage({
             ⚡
           </span>
           <div className="coach-energy-card__text">
-            <p className="coach-energy-card__title">
-              {debugMode
-                ? '測試模式：不限次數'
-                : `今日能量 ${remainingSessions} / ${dailyLimit}`}
-            </p>
-            {!debugMode ? (
-              <p className="coach-energy-card__hint">每日重置，好好練習吧！</p>
+            <p className="coach-energy-card__title">{usageDisplay.title}</p>
+            {usageDisplay.secondaryTitle ? (
+              <p className="coach-energy-card__subtitle">{usageDisplay.secondaryTitle}</p>
+            ) : null}
+            {usageDisplay.hint ? (
+              <p className="coach-energy-card__hint">{usageDisplay.hint}</p>
             ) : null}
           </div>
         </div>
@@ -1198,16 +1311,30 @@ export function CoachPage({
       ) : null}
 
       <div className="coach-chat-shell" ref={chatShellRef} onScroll={handleChatScroll}>
+        {showCompletionUpgrade ? (
+          <CoachCompletionUpgradeCard
+            onUpgrade={() => openProUpgrade('coach-limit')}
+            onDismiss={() => {
+              dismissCoachCompletionUpgradeToday()
+              setShowCompletionUpgrade(false)
+            }}
+          />
+        ) : null}
         <CoachChatView
           language={language}
           practiceMode={practiceMode}
           phase={phase}
           session={sessionInfo}
           messages={messages}
-          userTurns={userTurns}
-          maxTurns={maxTurns}
+          usageDisplay={usageDisplay}
+          plan={plan}
           loading={loading}
-          showQuickActions={practiceMode === 'scenario-practice' && phase === 'welcome' && !awaitingCustomInput}
+          showQuickActions={
+            practiceMode === 'scenario-practice' &&
+            phase === 'welcome' &&
+            !awaitingCustomInput &&
+            (isPro || debugMode)
+          }
           onStartTopic={handleQuickStartTopic}
           onFocusCustomInput={handleFocusCustomInput}
           onRequestNaturalCorrection={handleRequestNaturalCorrection}
@@ -1286,7 +1413,12 @@ export function CoachPage({
             type="button"
             className={`coach-chat-send${shouldPromptProUpgrade ? ' coach-chat-send--upgrade-prompt' : ''}`}
             onClick={() => void handleSend()}
-            disabled={loading || isListening || (!shouldPromptProUpgrade && !input.trim())}
+            disabled={
+              loading ||
+              isListening ||
+              shouldShowProDailyLimit ||
+              (!shouldPromptProUpgrade && !input.trim())
+            }
             aria-label={loading ? '送出中' : '送出'}
           >
             {loading ? (
@@ -1331,6 +1463,25 @@ export function CoachPage({
         open={translationChallengeOpen}
         initialLanguage={language}
         onClose={() => setTranslationChallengeOpen(false)}
+      />
+
+      {weaknessPanelOpen ? (
+        <div className="coach-overlay-backdrop" role="presentation" onClick={() => setWeaknessPanelOpen(false)}>
+          <div onClick={(event) => event.stopPropagation()}>
+            <WeaknessAnalysisPanel
+              language={language}
+              analysis={weaknessAnalysis}
+              onClose={() => setWeaknessPanelOpen(false)}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      <FavoriteReviewOverlay
+        open={favoriteReviewOpen}
+        language={language}
+        favorites={favoriteSentences}
+        onClose={() => setFavoriteReviewOpen(false)}
       />
     </div>
   )

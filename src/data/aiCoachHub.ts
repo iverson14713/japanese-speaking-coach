@@ -14,7 +14,7 @@ export const AI_COACH_HUB_ITEMS: AiCoachHubItem[] = [
   {
     id: 'live-practice',
     title: 'AI 實戰練習',
-    subtitle: '自由聊天與情境對話',
+    subtitle: '逐句糾正、自然說法、接著聊',
     icon: '🎯',
     status: 'available',
   },

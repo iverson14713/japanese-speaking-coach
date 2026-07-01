@@ -11,16 +11,34 @@ export const COACH_AI_SOURCE_LABELS: Record<CoachAiSource, string> = {
 export type CoachPlan = 'free' | 'pro'
 
 export interface CoachLimits {
-  dailySessions: number
-  maxTurnsPerSession: number
+  dailyTurnLimit: number
+  freeSessionLimit?: number
+  freePerSessionTurnLimit?: number
 }
 
 export const COACH_LIMITS: Record<CoachPlan, CoachLimits> = {
-  free: { dailySessions: 1, maxTurnsPerSession: 3 },
-  pro: { dailySessions: 5, maxTurnsPerSession: 8 },
+  free: { dailyTurnLimit: 5, freeSessionLimit: 1, freePerSessionTurnLimit: 5 },
+  pro: { dailyTurnLimit: 15 },
 }
 
 export type CoachPracticeMode = 'free-chat' | 'scenario-practice'
+
+/** 語音/文字輸入模式：中文問教練 vs 練習目標語言 */
+export type CoachInputMode = 'zh-coach' | 'practice-language'
+
+export interface CoachFeedback {
+  corrected: string
+  correctedPronunciation?: string
+  correctedMeaningZh?: string
+  natural: string
+  naturalPronunciation?: string
+  naturalMeaningZh?: string
+  naturalAlreadyGood?: boolean
+  tipZh: string
+  followUp: string
+  followUpPronunciation?: string
+  followUpMeaningZh?: string
+}
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -30,6 +48,7 @@ export interface ChatMessage {
   coachingZh?: string
   guidanceZh?: string
   hint?: ChatHint
+  coachFeedback?: CoachFeedback
   /** welcome = 開場白；scenario-meta = 情境說明；dialogue = 對話內容 */
   variant?: 'welcome' | 'scenario-meta' | 'dialogue'
   /** Unix ms timestamp */
@@ -111,6 +130,7 @@ export interface ConversationReplyResult {
   coachingZh?: string
   guidanceZh?: string
   hint?: ChatHint
+  coachFeedback?: CoachFeedback
 }
 
 export interface CustomScenarioRequest {
@@ -147,6 +167,7 @@ export interface ConversationReplyRequest {
   history: ChatMessage[]
   userMessage: string
   practiceMode?: CoachPracticeMode
+  inputMode?: CoachInputMode
   learningSummary?: string
 }
 
@@ -154,6 +175,7 @@ export interface FreeChatReplyRequest {
   language: Language
   history: ChatMessage[]
   userMessage: string
+  inputMode?: CoachInputMode
   learningSummary?: string
 }
 

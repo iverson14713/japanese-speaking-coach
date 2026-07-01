@@ -4,6 +4,8 @@ import type {
   ChatHint,
   ChatMessage,
   CoachAiSource,
+  CoachFeedback,
+  CoachInputMode,
   ConversationReplyRequest,
   ConversationReplyResult,
   CustomScenarioRequest,
@@ -322,40 +324,6 @@ const CUSTOM_OPENINGS: Record<
   },
 }
 
-const GENERIC_FOLLOW_UPS: Record<
-  Language,
-  { reply: string; replyMeaningZh: string; replyPronunciation?: string }[]
-> = {
-  ja: [
-    {
-      reply: 'かしこまりました。他にご質問はありますか？',
-      replyMeaningZh: '好的，還有其他問題嗎？',
-      replyPronunciation: 'kashikomarimashita. hoka ni goshitsumon wa arimasu ka',
-    },
-    {
-      reply: '少々お待ちください。',
-      replyMeaningZh: '請稍等一下。',
-      replyPronunciation: 'shoushou omachi kudasai',
-    },
-  ],
-  en: [
-    { reply: 'Sure, no problem. Anything else?', replyMeaningZh: '好的，沒問題。還需要別的嗎？' },
-    { reply: 'Got it. Here you go.', replyMeaningZh: '了解，給你。' },
-  ],
-  ko: [
-    {
-      reply: '네, 알겠습니다. 다른 거 필요하세요?',
-      replyMeaningZh: '好的，還需要別的嗎？',
-      replyPronunciation: 'ne, algesseumnida. dareun geo pilyohaseyo?',
-    },
-    {
-      reply: '잠시만 기다려 주세요.',
-      replyMeaningZh: '請稍等一下。',
-      replyPronunciation: 'jamsiman gidaryeo juseyo',
-    },
-  ],
-}
-
 function pickRandom<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)]
 }
@@ -390,13 +358,6 @@ function isChineseDominantInput(text: string): boolean {
   const hasKorean = /[가-힣]/.test(trimmed)
   const hasEnglishWords = /\b[a-zA-Z]{2,}\b/.test(trimmed)
   return hasCjk && !hasJapanese && !hasKorean && !hasEnglishWords
-}
-
-function coachingIntroForLanguage(language: Language): string {
-  if (language === 'en') {
-    return 'You can say:'
-  }
-  return '可以這樣說：'
 }
 
 const TRAIN_TO_TOKYO_PHRASES: Record<
@@ -661,78 +622,215 @@ function mapSuggestUserReplyResponse(
   }
 }
 
-function mockFreeChatReply(language: Language, userMessage: string): ConversationReplyResult {
-  const trimmed = userMessage.trim()
+function buildConversationReplyFromFeedback(feedback: CoachFeedback): ConversationReplyResult {
+  return {
+    coachFeedback: feedback,
+    reply: feedback.followUp,
+    replyMeaningZh: feedback.followUpMeaningZh ?? '',
+    replyPronunciation: feedback.followUpPronunciation,
+  }
+}
 
-  if (isExplicitHelpRequest(trimmed) || isChineseDominantInput(trimmed)) {
+function mockCoachFeedbackReply(
+  language: Language,
+  userMessage: string,
+  inputMode: CoachInputMode,
+): ConversationReplyResult {
+  const trimmed = userMessage.trim()
+  const useZhCoach = inputMode === 'zh-coach' || isChineseDominantInput(trimmed) || isExplicitHelpRequest(trimmed)
+
+  if (useZhCoach) {
     const phrase = pickPhraseForChineseMessage(language, trimmed, 0)
-    return {
-      coachingZh: coachingIntroForLanguage(language),
-      reply: phrase.foreign,
-      replyPronunciation: phrase.pronunciation,
-      replyMeaningZh: phrase.meaningZh,
-      guidanceZh: '你可以試著用這句跟我聊聊看。',
+    const followUps: Record<Language, { followUp: string; followUpMeaningZh: string; pronunciation?: string }> = {
+      en: {
+        followUp: 'Can you try saying that out loud?',
+        followUpMeaningZh: '你可以試著把這句說出來嗎？',
+      },
+      ja: {
+        followUp: 'その文を声に出して言ってみてください。',
+        followUpMeaningZh: '你可以試著把這句說出來嗎？',
+        pronunciation: 'sono bun o koe ni dashite itte mite kudasai',
+      },
+      ko: {
+        followUp: '그 문장을 소리 내어 말해 보세요.',
+        followUpMeaningZh: '你可以試著把這句說出來嗎？',
+        pronunciation: 'geu munjangeul sori naeeo malhae boseyo',
+      },
+    }
+    const follow = followUps[language]
+    return buildConversationReplyFromFeedback({
+      corrected: phrase.foreign,
+      correctedPronunciation: language === 'en' ? undefined : phrase.pronunciation,
+      correctedMeaningZh: phrase.meaningZh,
+      natural: phrase.foreign,
+      naturalPronunciation: language === 'en' ? undefined : phrase.pronunciation,
+      naturalMeaningZh: phrase.meaningZh,
+      tipZh: '這是日常會用到的說法，可以直接開口練。',
+      followUp: follow.followUp,
+      followUpMeaningZh: follow.followUpMeaningZh,
+      followUpPronunciation: follow.pronunciation,
+    })
+  }
+
+  if (language === 'en') {
+    if (/not busy today am engineer/i.test(trimmed)) {
+      return buildConversationReplyFromFeedback({
+        corrected: "I'm not busy today. I'm an engineer.",
+        correctedMeaningZh: '我今天不忙。我是工程師。',
+        natural: "I'm free today. I work as an engineer.",
+        naturalMeaningZh: '我今天有空。我做工程師的工作。',
+        tipZh:
+          '「am engineer」前面需要主詞，應該說 "I\'m an engineer"。如果想表達職業，英文常說 "I work as an engineer."',
+        followUp: 'What kind of engineering do you do?',
+        followUpMeaningZh: '你做哪一種工程呢？',
+      })
+    }
+    if (/worked today but i have no job today/i.test(trimmed)) {
+      return buildConversationReplyFromFeedback({
+        corrected: "I worked today, but I don't have work now.",
+        correctedMeaningZh: '我今天有工作，但現在沒有工作（要上班的事）了。',
+        natural: "I worked earlier today, but I'm off now.",
+        naturalMeaningZh: '我今天早些时候有上班，但現在下班了。',
+        tipZh:
+          '"job" 通常是職業或職位，不太用來表示「今天有沒有上班」。這裡用 "work" 或 "I\'m off" 會比較自然。',
+        followUp: 'What did you do at work today?',
+        followUpMeaningZh: '你今天工作做了什麼？',
+      })
+    }
+    if (/^(hello|hi)$/i.test(trimmed)) {
+      return buildConversationReplyFromFeedback({
+        corrected: 'Hello!',
+        correctedMeaningZh: '你好！',
+        natural: '這句已經很自然',
+        naturalAlreadyGood: true,
+        tipZh: '打招呼很自然，可以加上後續話題讓對話繼續。',
+        followUp: 'What would you like to talk about today?',
+        followUpMeaningZh: '今天想聊什麼呢？',
+      })
     }
   }
 
-  const greetings: Record<Language, ConversationReplyResult> = {
-    en: {
-      reply: 'Hello! What would you like to talk about today?',
-      replyMeaningZh: '嗨！今天想聊什麼呢？',
-      guidanceZh: '用英文或中文都可以，慢慢說沒關係。',
-    },
-    ja: {
-      reply: 'こんにちは！今日は何を話しましょうか？',
-      replyPronunciation: 'konnichiwa! kyou wa nani o hanashimashou ka?',
-      replyMeaningZh: '你好！今天想聊什麼呢？',
-      guidanceZh: '日文或中文都可以，慢慢說沒關係。',
-    },
-    ko: {
-      reply: '안녕하세요! 오늘은 무엇을 이야기해 볼까요?',
-      replyPronunciation: 'annyeonghaseyo! oneureun mueoseul iyagihae bolkkayo?',
-      replyMeaningZh: '你好！今天想聊什麼呢？',
-      guidanceZh: '韓文或中文都可以，慢慢說沒關係。',
-    },
-  }
-
   if (/^(hello|hi)$/i.test(trimmed) || /^(哈囉|你好|嗨)$/.test(trimmed)) {
-    return greetings[language]
+    const greetings: Record<Language, CoachFeedback> = {
+      en: {
+        corrected: 'Hello!',
+        correctedMeaningZh: '你好！',
+        natural: '這句已經很自然',
+        naturalAlreadyGood: true,
+        tipZh: '打招呼很自然。',
+        followUp: 'What would you like to talk about today?',
+        followUpMeaningZh: '今天想聊什麼呢？',
+      },
+      ja: {
+        corrected: 'こんにちは！',
+        correctedPronunciation: 'konnichiwa!',
+        correctedMeaningZh: '你好！',
+        natural: '這句已經很自然',
+        naturalAlreadyGood: true,
+        tipZh: '打招呼很自然。',
+        followUp: '今日は何を話しましょうか？',
+        followUpPronunciation: 'kyou wa nani o hanashimashou ka?',
+        followUpMeaningZh: '今天想聊什麼呢？',
+      },
+      ko: {
+        corrected: '안녕하세요!',
+        correctedPronunciation: 'annyeonghaseyo!',
+        correctedMeaningZh: '你好！',
+        natural: '這句已經很自然',
+        naturalAlreadyGood: true,
+        tipZh: '打招呼很自然。',
+        followUp: '오늘은 무엇을 이야기해 볼까요?',
+        followUpPronunciation: 'oneureun mueoseul iyagihae bolkkayo?',
+        followUpMeaningZh: '今天想聊什麼呢？',
+      },
+    }
+    return buildConversationReplyFromFeedback(greetings[language])
   }
 
-  const followUps: Record<Language, ConversationReplyResult[]> = {
+  const genericFollowUps: Record<Language, CoachFeedback[]> = {
     en: [
       {
-        reply: "That's interesting! Tell me more.",
-        replyMeaningZh: '很有趣！再多說一點。',
-        guidanceZh: '試著用英文繼續聊下去吧。',
-      },
-      {
-        reply: 'I see. How do you feel about that?',
-        replyMeaningZh: '原來如此，你覺得怎麼樣？',
-        guidanceZh: '用你會的字慢慢說也可以。',
+        corrected: trimmed.endsWith('.') ? trimmed : `${trimmed}.`,
+        correctedMeaningZh: '（你的句子，已稍作整理）',
+        natural: '這句已經很自然',
+        naturalAlreadyGood: true,
+        tipZh: '意思傳達到了，可以試著用更完整的句子繼續聊。',
+        followUp: 'Tell me more about that.',
+        followUpMeaningZh: '再多說一點吧。',
       },
     ],
     ja: [
       {
-        reply: 'そうなんですね。もう少し教えてください。',
-        replyPronunciation: 'sou nan desu ne. mou sukoshi oshiete kudasai',
-        replyMeaningZh: '是這樣啊，再多告訴我一些吧。',
-        guidanceZh: '試著用日文繼續聊下去吧。',
+        corrected: trimmed,
+        correctedMeaningZh: '（你的句子）',
+        natural: '這句已經很自然',
+        naturalAlreadyGood: true,
+        tipZh: '可以試著把句子說得更完整一點。',
+        followUp: 'もう少し教えてください。',
+        followUpPronunciation: 'mou sukoshi oshiete kudasai',
+        followUpMeaningZh: '再多告訴我一些吧。',
       },
     ],
     ko: [
       {
-        reply: '그렇군요. 조금 더 이야기해 주세요.',
-        replyPronunciation: 'geureokgunyo. jogeum deo iyagihae juseyo',
-        replyMeaningZh: '是這樣啊，再多說一點吧。',
-        guidanceZh: '試著用韓文繼續聊下去吧。',
+        corrected: trimmed,
+        correctedMeaningZh: '（你的句子）',
+        natural: '這句已經很自然',
+        naturalAlreadyGood: true,
+        tipZh: '可以試著把句子說得更完整一點。',
+        followUp: '조금 더 이야기해 주세요.',
+        followUpPronunciation: 'jogeum deo iyagihae juseyo',
+        followUpMeaningZh: '再多說一點吧。',
       },
     ],
   }
 
-  const options = followUps[language]
+  const options = genericFollowUps[language]
   const index = Math.min(trimmed.length % options.length, options.length - 1)
-  return options[index]
+  return buildConversationReplyFromFeedback(options[index])
+}
+
+function mapCoachFeedbackApiResponse(data: Record<string, unknown>): ConversationReplyResult {
+  const feedback = data.coachFeedback as CoachFeedback | undefined
+  if (feedback?.corrected && feedback.followUp) {
+    return {
+      coachFeedback: feedback,
+      reply: (data.reply as string) ?? feedback.followUp,
+      replyMeaningZh: (data.replyMeaningZh as string) ?? feedback.followUpMeaningZh ?? '',
+      replyPronunciation: data.replyPronunciation as string | undefined,
+      hint: data.hint as ChatHint | undefined,
+    }
+  }
+
+  const legacyFeedback: CoachFeedback = {
+    corrected: (data.corrected as string) ?? (data.reply as string) ?? '',
+    correctedPronunciation: data.correctedPronunciation as string | undefined,
+    correctedMeaningZh: data.correctedMeaningZh as string | undefined,
+    natural: (data.natural as string) ?? '這句已經很自然',
+    naturalPronunciation: data.naturalPronunciation as string | undefined,
+    naturalMeaningZh: data.naturalMeaningZh as string | undefined,
+    naturalAlreadyGood: data.naturalAlreadyGood as boolean | undefined,
+    tipZh: (data.tipZh as string) ?? '',
+    followUp: (data.followUp as string) ?? (data.reply as string) ?? '',
+    followUpPronunciation: data.followUpPronunciation as string | undefined,
+    followUpMeaningZh: (data.followUpMeaningZh as string) ?? (data.replyMeaningZh as string),
+  }
+
+  return {
+    coachFeedback: legacyFeedback,
+    reply: (data.reply as string) ?? legacyFeedback.followUp,
+    replyMeaningZh: (data.replyMeaningZh as string) ?? legacyFeedback.followUpMeaningZh ?? '',
+    replyPronunciation: data.replyPronunciation as string | undefined,
+    hint: data.hint as ChatHint | undefined,
+  }
+}
+
+function mockFreeChatReply(
+  language: Language,
+  userMessage: string,
+  inputMode: CoachInputMode = 'practice-language',
+): ConversationReplyResult {
+  return mockCoachFeedbackReply(language, userMessage, inputMode)
 }
 
 function mockConversationReply(
@@ -740,27 +838,12 @@ function mockConversationReply(
   userMessage: string,
   userTurnIndex: number,
   topic?: TopicChatSession,
+  inputMode: CoachInputMode = 'practice-language',
 ): ConversationReplyResult {
-  if (isExplicitHelpRequest(userMessage) || isChineseDominantInput(userMessage)) {
-    const phrase = pickPhraseForChineseMessage(language, userMessage, userTurnIndex)
-    const hints = topic?.hints ?? CUSTOM_HINTS[language]
-    return {
-      coachingZh: coachingIntroForLanguage(language),
-      reply: phrase.foreign,
-      replyPronunciation: phrase.pronunciation,
-      replyMeaningZh: phrase.meaningZh,
-      guidanceZh: '你可以試著說一次。',
-      hint: hints[userTurnIndex % hints.length],
-    }
-  }
-
-  const replies = topic?.followUpReplies ?? GENERIC_FOLLOW_UPS[language]
-  const index = Math.min(userTurnIndex - 1, replies.length - 1)
-  const reply = replies[Math.max(0, index)]
+  const base = mockCoachFeedbackReply(language, userMessage, inputMode)
   const hints = topic?.hints ?? CUSTOM_HINTS[language]
-
   return {
-    ...reply,
+    ...base,
     hint: hints[userTurnIndex % hints.length],
   }
 }
@@ -956,6 +1039,7 @@ export async function continueTopicConversation(
 export async function continueFreeChat(
   request: FreeChatReplyRequest,
 ): Promise<ConversationReplyResult> {
+  const inputMode = request.inputMode ?? 'practice-language'
   return withCoachApi(
     'free-chat-reply',
     {
@@ -963,17 +1047,19 @@ export async function continueFreeChat(
       history: historyForApi(request.history),
       userMessage: request.userMessage,
       learningSummary: request.learningSummary,
+      inputMode,
     },
     async () => {
       await delay(500)
-      return mockFreeChatReply(request.language, request.userMessage)
+      return mockFreeChatReply(request.language, request.userMessage, inputMode)
     },
-  )
+  ).then((data) => mapCoachFeedbackApiResponse(data as unknown as Record<string, unknown>))
 }
 
 export async function continueConversation(
   request: ConversationReplyRequest,
 ): Promise<ConversationReplyResult> {
+  const inputMode = request.inputMode ?? 'practice-language'
   return withCoachApi(
     'conversation-reply',
     {
@@ -987,14 +1073,15 @@ export async function continueConversation(
       history: historyForApi(request.history),
       userMessage: request.userMessage,
       learningSummary: request.learningSummary,
+      inputMode,
     },
     async () => {
       await delay(500)
       const topic = findTopicSession(request.language, request.scenario)
       const userTurnIndex = request.history.filter((message) => message.role === 'user').length
-      return mockConversationReply(request.language, request.userMessage, userTurnIndex, topic)
+      return mockConversationReply(request.language, request.userMessage, userTurnIndex, topic, inputMode)
     },
-  )
+  ).then((data) => mapCoachFeedbackApiResponse(data as unknown as Record<string, unknown>))
 }
 
 export function getTopicHint(

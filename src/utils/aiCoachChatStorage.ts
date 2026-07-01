@@ -1,6 +1,8 @@
 import type { Language } from '../data/types'
 import type { ChatMessage, ChatSessionInfo, CoachPracticeMode } from '../services/ai'
 
+import type { CoachFeedback } from '../services/ai/types'
+
 const CHAT_STORAGE_PREFIX = 'aiCoachChat'
 const SUMMARY_STORAGE_PREFIX = 'aiCoachSummary'
 const MODE_STORAGE_PREFIX = 'aiCoachMode'
@@ -13,6 +15,7 @@ type StoredMessage = {
   text: string
   pronunciation?: string
   meaningZh?: string
+  coachFeedback?: CoachFeedback
   createdAt: number
   mode: CoachPracticeMode
   variant?: ChatMessage['variant']
@@ -210,6 +213,7 @@ export function serializeMessagesForStorage(
       text: m.text,
       pronunciation: m.pronunciation,
       meaningZh: m.meaningZh,
+      coachFeedback: m.coachFeedback,
       createdAt: m.createdAt ?? now,
       mode: m.mode ?? practiceMode,
       variant: m.variant,
@@ -228,6 +232,7 @@ export function hydrateMessagesFromStorage(
     text: m.text,
     pronunciation: m.pronunciation,
     meaningZh: m.meaningZh,
+    coachFeedback: m.coachFeedback,
     variant: m.variant ?? 'dialogue',
     createdAt: m.createdAt,
     mode: m.mode,

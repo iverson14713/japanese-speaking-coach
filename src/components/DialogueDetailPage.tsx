@@ -5,16 +5,30 @@ import {
   getScriptsByCategory,
   type DialogueCategoryId,
 } from '../data/dialogues'
+import { useProUpgrade } from '../context/ProUpgradeContext'
 import { useRecordPracticeCompletion } from '../hooks/useRecordPracticeCompletion'
+import { ProFeatureCard } from './pro/ProFeatureCard'
 import { DialogueScriptCard } from './DialogueScriptCard'
 
 interface DialogueDetailPageProps {
   language: Language
   category: DialogueCategoryId
+  isPro: boolean
   onBack: () => void
+  onStartAiScenarioRoleplay: (payload: {
+    scenarioTitle: string
+    scenarioPrompt: string
+  }) => void
 }
 
-export function DialogueDetailPage({ language, category, onBack }: DialogueDetailPageProps) {
+export function DialogueDetailPage({
+  language,
+  category,
+  isPro,
+  onBack,
+  onStartAiScenarioRoleplay,
+}: DialogueDetailPageProps) {
+  const { openProUpgrade } = useProUpgrade()
   const [expandedScriptId, setExpandedScriptId] = useState<string | null>(null)
   const recordPractice = useRecordPracticeCompletion(language)
   const scenario = getDialogueScenario(category)
@@ -47,6 +61,17 @@ export function DialogueDetailPage({ language, category, onBack }: DialogueDetai
     setExpandedScriptId((current) => (current === scriptId ? null : scriptId))
   }
 
+  const handleAiScenarioClick = () => {
+    if (!isPro) {
+      openProUpgrade('scenario-roleplay')
+      return
+    }
+    onStartAiScenarioRoleplay({
+      scenarioTitle: scenario.name,
+      scenarioPrompt: `旅行情境：${scenario.name}。${scenario.descriptionZh}。請扮演情境中的當地人，陪我練習真實對話。`,
+    })
+  }
+
   return (
     <>
       <header className="dialogue-detail-header">
@@ -58,6 +83,16 @@ export function DialogueDetailPage({ language, category, onBack }: DialogueDetai
       </header>
 
       <main className="app-main dialogue-detail-main">
+        <div className="dialogue-detail-pro-entry">
+          <ProFeatureCard
+            title="AI 情境實戰"
+            subtitle="讓 AI 扮演店員、櫃台或路人，陪你練真實對話"
+            icon="🎭"
+            locked={!isPro}
+            onClick={handleAiScenarioClick}
+          />
+        </div>
+
         <div className="script-list">
           {scripts.map((script) => (
             <DialogueScriptCard

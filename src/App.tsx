@@ -25,8 +25,7 @@ import { useProUpgrade } from './context/ProUpgradeContext'
 import { useProEntitlement } from './hooks/useProEntitlement'
 import { isAiCoachDebugMode } from './utils/aiCoachDebugMode'
 import {
-  canStartCoachSession,
-  consumeCoachSession,
+  canUseCoachApi,
 } from './utils/coachUsageStorage'
 import { buildDailyCoachHandoff } from './utils/buildDailyCoachHandoff'
 import {
@@ -74,11 +73,11 @@ function MainApp() {
   )
   const [coachOpenIntent, setCoachOpenIntent] = useState<CoachOpenIntent>(null)
   const [canStartAiPractice, setCanStartAiPractice] = useState(() =>
-    canStartCoachSession(coachPlan, loadLanguagePreference()),
+    canUseCoachApi(coachPlan, loadLanguagePreference()),
   )
 
   const refreshAiPracticeAvailability = useCallback(() => {
-    setCanStartAiPractice(canStartCoachSession(coachPlan, language))
+    setCanStartAiPractice(canUseCoachApi(coachPlan, language))
   }, [coachPlan, language])
 
   const handleLanguageChange = useCallback((nextLanguage: Language) => {
@@ -101,17 +100,12 @@ function MainApp() {
 
   const handleStartDailyAiPractice = useCallback(
     (sentence: Sentence) => {
-      if (!isAiCoachDebugMode() && !canStartCoachSession(coachPlan, sentence.language)) {
+      if (!isAiCoachDebugMode() && !canUseCoachApi(coachPlan, sentence.language)) {
         openProUpgrade('coach-limit')
         return
       }
 
-      if (!isAiCoachDebugMode()) {
-        consumeCoachSession(sentence.language)
-        refreshAiPracticeAvailability()
-      }
-
-      const handoff = buildDailyCoachHandoff(sentence, { sessionAlreadyConsumed: true })
+      const handoff = buildDailyCoachHandoff(sentence, { sessionAlreadyConsumed: false })
       startCoachPracticeFromDaily(handoff)
       setDailyHandoff(handoff)
 
@@ -196,7 +190,16 @@ function MainApp() {
               key={`${language}-${dialogueCategory}`}
               language={language}
               category={dialogueCategory}
+              isPro={isPro}
               onBack={handleDialogueBack}
+              onStartAiScenarioRoleplay={({ scenarioTitle, scenarioPrompt }) => {
+                setCoachOpenIntent({
+                  type: 'scenario-roleplay',
+                  scenarioTitle,
+                  scenarioPrompt,
+                })
+                setActiveTab('coach')
+              }}
             />
           ) : (
             <DialoguePage

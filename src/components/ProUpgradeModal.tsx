@@ -1,18 +1,13 @@
 import { useEffect, useState } from 'react'
 import type { ProUpgradeReason } from '../context/ProUpgradeContext'
+import {
+  getProUpgradeCopy,
+  PRO_UNLOCK_FEATURES,
+} from '../constants/proEntitlements'
 import { PRO_PRICE_FALLBACK, type ProProductDisplayPrices } from '../constants/proProducts'
 import { useProEntitlement } from '../hooks/useProEntitlement'
 import { fetchProProductPrices } from '../services/proEntitlement'
 import { showToast } from '../utils/toast'
-
-const FEATURES = [
-  '每日 5 次 AI 口說練習',
-  '單次最多 8 回合',
-  '自由聊天與情境練習都能用',
-  '不會說時可用中文問教練',
-  '句庫收藏不限',
-  '移除 App 推薦',
-] as const
 
 const DEFAULT_PRICES: ProProductDisplayPrices = {
   monthly: PRO_PRICE_FALLBACK.monthly,
@@ -61,6 +56,7 @@ export function ProUpgradeModal({ open, reason, onClose }: ProUpgradeModalProps)
   }
 
   const isBusy = loadingAction !== null
+  const copy = getProUpgradeCopy(reason)
 
   const handlePurchase = async (plan: 'monthly' | 'yearly') => {
     if (isBusy) {
@@ -110,12 +106,6 @@ export function ProUpgradeModal({ open, reason, onClose }: ProUpgradeModalProps)
     }
   }
 
-  const title = reason === 'coach-limit' ? '今天 AI 練習次數用完了' : '升級 Pro，移除 App 推薦'
-  const subtitle =
-    reason === 'coach-limit'
-      ? '升級 Pro，讓 AI 教練每天陪你多練幾回。'
-      : '享受更乾淨的練習畫面，並解鎖更多 AI 練習功能'
-
   return (
     <div className="pro-modal" role="presentation" onClick={onClose}>
       <div
@@ -126,12 +116,13 @@ export function ProUpgradeModal({ open, reason, onClose }: ProUpgradeModalProps)
         onClick={(event) => event.stopPropagation()}
       >
         <h2 id="pro-modal-title" className="pro-modal__title">
-          {title}
+          {copy.title}
         </h2>
-        <p className="pro-modal__subtitle">{subtitle}</p>
+        <p className="pro-modal__subtitle">{copy.subtitle}</p>
 
+        <p className="pro-modal__section-label">Pro 解鎖</p>
         <ul className="pro-modal__features">
-          {FEATURES.map((feature) => (
+          {PRO_UNLOCK_FEATURES.map((feature) => (
             <li key={feature} className="pro-modal__feature">
               <span className="pro-modal__check" aria-hidden="true">
                 ✓
@@ -149,7 +140,7 @@ export function ProUpgradeModal({ open, reason, onClose }: ProUpgradeModalProps)
             disabled={isBusy}
           >
             <span className="pro-modal__plan-label">
-              {loadingAction === 'monthly' ? '處理中…' : '月費升級'}
+              {loadingAction === 'monthly' ? '處理中…' : '升級 Pro'}
             </span>
             {loadingAction !== 'monthly' ? (
               <span className="pro-modal__plan-price">{prices.monthly}</span>
@@ -186,7 +177,7 @@ export function ProUpgradeModal({ open, reason, onClose }: ProUpgradeModalProps)
           {loadingAction === 'restore' ? '恢復中…' : '恢復購買'}
         </button>
         <button type="button" className="pro-modal__later" onClick={onClose} disabled={isBusy}>
-          稍後再說
+          {copy.dismissLabel}
         </button>
       </div>
     </div>

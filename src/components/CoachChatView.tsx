@@ -1,6 +1,14 @@
 import { useState } from 'react'
 import type { Language } from '../data/types'
-import type { ChatMessage, ChatSessionInfo, CoachPracticeMode, SentenceCorrectionResult } from '../services/ai'
+import type {
+  ChatMessage,
+  ChatSessionInfo,
+  CoachPlan,
+  CoachPracticeMode,
+  SentenceCorrectionResult,
+} from '../services/ai'
+import type { CoachUsageDisplayInfo } from '../utils/coachUsageStorage'
+import { CoachFeedbackCard } from './CoachFeedbackCard'
 import { SpeakButton } from './SpeakButton'
 
 interface UserMessageExtras {
@@ -19,8 +27,8 @@ interface CoachChatViewProps {
   phase: 'welcome' | 'active' | 'ended'
   session: ChatSessionInfo | null
   messages: ChatMessage[]
-  userTurns: number
-  maxTurns: number
+  usageDisplay: CoachUsageDisplayInfo
+  plan: CoachPlan
   loading: boolean
   showQuickActions: boolean
   onStartTopic: () => void
@@ -64,8 +72,8 @@ export function CoachChatView({
   phase,
   session,
   messages,
-  userTurns,
-  maxTurns,
+  usageDisplay,
+  plan,
   loading,
   showQuickActions,
   onStartTopic,
@@ -77,8 +85,14 @@ export function CoachChatView({
   const [actionLoading, setActionLoading] = useState<number | null>(null)
 
   const chatEnded =
-    practiceMode === 'scenario-practice' && (phase === 'ended' || userTurns >= maxTurns)
-  const currentTurn = phase === 'welcome' ? 0 : Math.min(userTurns + 1, maxTurns)
+    practiceMode === 'scenario-practice' &&
+    (phase === 'ended' ||
+      usageDisplay.kind === 'free-exhausted' ||
+      usageDisplay.kind === 'pro-exhausted')
+  const sessionTurnLabel =
+    plan === 'pro'
+      ? `今日 AI 回合 ${usageDisplay.totalTurnsUsed} / ${usageDisplay.dailyTurnLimit}`
+      : `本場回合 ${usageDisplay.currentSessionTurns} / ${usageDisplay.freePerSessionTurnLimit}`
   const showSessionPanel =
     practiceMode === 'scenario-practice' && session && phase !== 'welcome'
 
@@ -122,7 +136,7 @@ export function CoachChatView({
             <span>{session.goalZh}</span>
           </p>
           <p className="coach-scenario-card__turn" aria-live="polite">
-            第 {chatEnded ? maxTurns : currentTurn} / {maxTurns} 回合
+            {sessionTurnLabel}
           </p>
         </div>
       ) : null}
@@ -203,6 +217,7 @@ export function CoachChatView({
           const isDialogue = variant === 'dialogue'
           const isWelcome = variant === 'welcome'
           const isScenarioMeta = variant === 'scenario-meta'
+          const hasCoachFeedback = Boolean(msg.coachFeedback)
           const welcomeParts = isWelcome ? splitMessageLines(msg.text) : null
 
           return (
@@ -218,7 +233,56 @@ export function CoachChatView({
                   <p className="coach-chat-coaching">{msg.coachingZh}</p>
                 ) : null}
 
-                {isDialogue ? (
+                {hasCoachFeedback && msg.coachFeedback ? (
+                  <>
+                    <CoachFeedbackCard
+                      feedback={msg.coachFeedback}
+                      language={language}
+                      showTranslation={messageExtras.showTranslation}
+                    />
+                    <div className="coach-chat-actions">
+                      <button
+                        type="button"
+                        className={`coach-chat-action${messageExtras.showTranslation ? ' coach-chat-action--active' : ''}`}
+                        onClick={() =>
+                          setAssistantExtras((current) => ({
+                            ...current,
+                            [index]: {
+                              ...getAssistantExtras(index),
+                              showTranslation: !messageExtras.showTranslation,
+                            },
+                          }))
+                        }
+                      >
+                        翻譯
+                      </button>
+                      {msg.hint ? (
+                        <button
+                          type="button"
+                          className={`coach-chat-action${messageExtras.showHint ? ' coach-chat-action--active' : ''}`}
+                          onClick={() =>
+                            setAssistantExtras((current) => ({
+                              ...current,
+                              [index]: {
+                                ...getAssistantExtras(index),
+                                showHint: !messageExtras.showHint,
+                              },
+                            }))
+                          }
+                        >
+                          提示
+                        </button>
+                      ) : null}
+                    </div>
+                    {messageExtras.showHint && msg.hint ? (
+                      <div className="coach-chat-inline-hint">
+                        <p className="coach-chat-inline-hint-label">建議回覆</p>
+                        <p className="coach-chat-inline-hint-text">{msg.hint.text}</p>
+                        <p className="coach-chat-inline-hint-meaning">{msg.hint.meaningZh}</p>
+                      </div>
+                    ) : null}
+                  </>
+                ) : isDialogue ? (
                   <>
                     <div className="coach-chat-text-row">
                       <p className="coach-chat-text coach-chat-text--primary">{msg.text}</p>
@@ -251,11 +315,11 @@ export function CoachChatView({
                   </p>
                 )}
 
-                {isDialogue && msg.guidanceZh ? (
+                {isDialogue && !hasCoachFeedback && msg.guidanceZh ? (
                   <p className="coach-chat-guidance">{msg.guidanceZh}</p>
                 ) : null}
 
-                {isDialogue ? (
+                {isDialogue && !hasCoachFeedback ? (
                   <>
                     <div className="coach-chat-actions">
                       <button
@@ -331,7 +395,13 @@ export function CoachChatView({
       </ul>
 
       {chatEnded ? (
-        <p className="coach-session-end">本次對話已結束，明天再來練吧！</p>
+        <p className="coach-session-end">
+          {usageDisplay.kind === 'pro-exhausted'
+            ? '今日 Pro AI 回合已用完，明天會自動恢復 15 回合'
+            : usageDisplay.kind === 'free-exhausted'
+              ? '今日免費 AI 實戰已完成，明天再來練吧！'
+              : '本次對話已結束，明天再來練吧！'}
+        </p>
       ) : null}
     </div>
   )

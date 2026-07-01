@@ -15,6 +15,8 @@ import { CategorySelector } from './CategorySelector'
 import { SentenceCard } from './SentenceCard'
 import { WordBreakdown } from './WordBreakdown'
 import { CrossPromoSection } from './CrossPromoSection'
+import { ProFeatureCard } from './pro/ProFeatureCard'
+import { FavoriteReviewOverlay } from './pro/FavoriteReviewOverlay'
 import { PhrasePractice } from './PhrasePractice'
 import { RecordButton, type RecordState } from './RecordButton'
 import { LibrarySegmentControl, type LibrarySegment } from './LibrarySegmentControl'
@@ -23,8 +25,11 @@ import { FavoritesEmptyState } from './FavoritesEmptyState'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { matchesKeyword } from '../utils/evaluateSpeech'
 import { useRecordPracticeCompletion } from '../hooks/useRecordPracticeCompletion'
-import { getFavoriteSentencesByLanguage } from '../utils/favoriteSentenceStorage'
+import { getFavoriteSentencesByLanguage, getFavoriteSentenceCount } from '../utils/favoriteSentenceStorage'
 import { useFavoriteSentencesRevision } from '../hooks/useFavoriteSentence'
+import { FREE_FAVORITE_LIMIT } from '../constants/proEntitlements'
+import { useProUpgrade } from '../context/ProUpgradeContext'
+import { useProEntitlement } from '../hooks/useProEntitlement'
 import {
   getRecentPracticeEntries,
   recordRecentPractice,
@@ -51,6 +56,9 @@ export function SentencePracticePage({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const recordPractice = useRecordPracticeCompletion(language)
+  const { isPro } = useProEntitlement()
+  const { openProUpgrade } = useProUpgrade()
+  const [favoriteReviewOpen, setFavoriteReviewOpen] = useState(false)
   const favoritesRevision = useFavoriteSentencesRevision()
   const [recentRevision, setRecentRevision] = useState(0)
 
@@ -267,6 +275,22 @@ export function SentencePracticePage({
 
       {librarySegment === 'favorites' ? (
         <main className="app-main library-list-main">
+          {!isPro ? (
+            <p className="library-favorites-limit" role="status">
+              收藏 {getFavoriteSentenceCount()} / {FREE_FAVORITE_LIMIT} 句
+            </p>
+          ) : null}
+          <div className="library-favorites-pro-entry">
+            <ProFeatureCard
+              title="收藏句 AI 複習"
+              subtitle="從收藏句產生 5 題口說複習"
+              icon="♥"
+              locked={!isPro}
+              onClick={() =>
+                isPro ? setFavoriteReviewOpen(true) : openProUpgrade('favorite-review')
+              }
+            />
+          </div>
           {favoriteSentences.length === 0 ? (
             <FavoritesEmptyState />
           ) : (
@@ -323,6 +347,13 @@ export function SentencePracticePage({
       ) : null}
 
       <CrossPromoSection />
+
+      <FavoriteReviewOverlay
+        open={favoriteReviewOpen}
+        language={language}
+        favorites={favoriteSentences}
+        onClose={() => setFavoriteReviewOpen(false)}
+      />
     </>
   )
 }

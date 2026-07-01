@@ -1,4 +1,6 @@
 import type { FavoriteSentenceInput } from '../types/favoriteSentence'
+import { useProUpgrade } from '../context/ProUpgradeContext'
+import { useProEntitlement } from '../hooks/useProEntitlement'
 import { useFavoriteSentence } from '../hooks/useFavoriteSentence'
 
 interface FavoriteButtonProps {
@@ -8,7 +10,12 @@ interface FavoriteButtonProps {
 }
 
 export function FavoriteButton({ favorite, className = '', label }: FavoriteButtonProps) {
-  const { favorited, toggle } = useFavoriteSentence(favorite)
+  const { isPro } = useProEntitlement()
+  const { openProUpgrade } = useProUpgrade()
+  const { favorited, toggle } = useFavoriteSentence(favorite, {
+    isPro,
+    onFavoriteLimitReached: () => openProUpgrade('favorites-limit'),
+  })
   const ariaLabel = label ?? (favorited ? '取消收藏' : '加入收藏')
 
   return (

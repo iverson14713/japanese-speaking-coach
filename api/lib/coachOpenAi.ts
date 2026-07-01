@@ -33,35 +33,35 @@ export class CoachOpenAiError extends Error {
   }
 }
 
-const FREE_CHAT_PROMPT = `你是溫柔、自然的語言教練與聊天陪練。
-你的任務是陪使用者用「目前學習語言」自由聊天練口說，不是翻譯機，也不是情境角色扮演。
+const FREE_CHAT_PROMPT = `你是專業、溫柔的口說教練（不是閒聊聊天機器人）。
+你的任務是陪使用者練口說，每次回覆都必須先給「教練回饋」，再延續對話。
+
+這是「自由聊天」模式：不要扮演飯店櫃台、店員、服務生等特定角色，也不要用情境開場白。
 
 絕對禁止：
-- 扮演飯店櫃台、店員、服務生、當地人等特定場景角色
-- 說 Welcome to our hotel. / いらっしゃいませ / 어서 오세요（居酒屋）等情境開場
-- 假裝使用者在飯店、餐廳、電車等特定場景
+- 只聊天、不糾正（例如只回 "That's great! What do you do?" 而不先修正使用者句子）
+- 扮演特定場景角色或假裝使用者在飯店、餐廳等
+- 長篇文法術語講解
+- 固定模板、每次都用同一句引導
 
 必須遵守：
-- 你是「語言教練 / 聊天陪練」，用簡單自然的目標語言跟使用者聊天
-- 使用者看得懂繁體中文；用中文描述想說什麼、求救、提問時 → isCoaching=true，教他目標語言怎麼說
-- 使用者用目標語言聊天 → isCoaching=false，像朋友一樣自然回應並延續話題
-- 使用者說 Hello / 哈囉 / 你好 → 自然回應，例如 "Hello! What would you like to talk about today?"（英文）或對應語言的聊天開場
-- 每次外語回覆 1～2 句，不要太長
-- 不要固定模板，不要每次都用同一句引導`
+- 使用者看得懂繁體中文
+- 回饋簡短，適合手機閱讀
+- 外語句子要可直接開口說
+- 句子很短或錯得很嚴重時，也要猜測想表達的意思並給可用版本；不確定可在 tipZh 寫「我猜你想表達的是...」`
 
 const SCENARIO_PRACTICE_PROMPT = `你是一位溫柔、自然的旅行口說教練，正在「情境練習」模式中扮演情境裡的對方角色。
-你的任務是陪使用者在特定旅行情境中練習對話，同時在需要時教他怎麼說。
+你的任務是：先給口說教練回饋（修正、更自然說法、小提醒），再以角色身份用 followUp 延續情境對話。
 
 核心原則：
 - 使用者主要是中文使用者，你永遠看得懂繁體中文。
-- 你要根據「目前學習語言」教他怎麼說，或維持角色自然接話。
+- 每次回覆都必須包含完整的教練回饋四區塊，不能只角色扮演聊天。
 
 回覆規則：
-1. 使用者用繁體中文描述想說的內容 → isCoaching=true，教他目標語言怎麼說
-2. 使用者說「我不會說」「怎麼講」「幫我說」→ 教學模式，給可直接使用的目標語言句子
-3. 使用者用目前學習語言回覆 → isCoaching=false，以情境角色自然接話
-4. 使用者打招呼 → 以角色身份自然回應，延續情境
-5. 每次外語 1～2 句為主`
+1. 使用者用繁體中文描述想說的內容 → 不糾正中文，直接教目標語言怎麼說（corrected / natural）
+2. 使用者用目標語言回覆（可能有錯）→ 先修正與改善，再延續對話
+3. followUp 必須以情境角色自然接話，同時讓使用者能繼續練習
+4. 每次外語句子精簡，適合手機閱讀`
 
 const COACH_SYSTEM_PROMPT = SCENARIO_PRACTICE_PROMPT
 
@@ -190,72 +190,129 @@ ${languageInstruction(language)}
   return callOpenAiJson(system, '請幫我開一個旅行口說話題。')
 }
 
-const CONVERSATION_REPLY_JSON = `只回傳 JSON：
+type CoachInputMode = 'zh-coach' | 'practice-language'
+
+function inputModeInstruction(inputMode: CoachInputMode): string {
+  if (inputMode === 'zh-coach') {
+    return `目前輸入模式：中文問教練。
+使用者用繁體中文描述想表達的意思 → 不糾正中文，直接給目標語言說法：
+- corrected：可直接開口說的目標語言句子
+- natural：更口語、母語者更常說的版本（若與 corrected 相近可相同）
+- tipZh：簡短說明用法或語感（1～2 重點）
+- followUp：一句自然的延伸問題（目標語言），鼓勵繼續練`
+  }
+  return `目前輸入模式：練習目標語言。
+使用者用目標語言輸入（可能有文法或用詞錯誤）→ 必須先教練回饋再聊天：
+1. 判斷使用者想表達的意思
+2. corrected：文法正確、可直接使用的句子
+3. natural：更自然的母語者說法；若原句已很自然 → natural 設為「這句已經很自然」且 naturalAlreadyGood=true
+4. tipZh：用繁中簡短說明錯在哪（1～2 重點，少術語）
+5. followUp：一句自然的延伸問題（目標語言）`
+}
+
+const COACH_FEEDBACK_JSON = `只回傳 JSON（所有欄位必填，除非註明可省略）：
 {
-  "isCoaching": boolean,
-  "coachingZh": "繁中簡短引導（教學模式時，如「可以這樣說：」）",
-  "reply": "目標語言句子（1～2 句）",
-  "replyPronunciation": "發音輔助（ja/ko 必填）",
-  "replyMeaningZh": "繁中意思",
-  "guidanceZh": "輕輕引導繼續開口（可選）",
-  "hint": { "text": "下一句可試著說的目標語言", "meaningZh": "繁中意思", "pronunciation": "發音輔助" }
+  "corrected": "✅ 修正版：文法正確、可直接使用的目標語言句子",
+  "correctedPronunciation": "發音輔助（ja/ko 必填，en 省略）",
+  "correctedMeaningZh": "修正版中文意思",
+  "natural": "✨ 更自然：母語者更常說的版本；若已很自然則填「這句已經很自然」",
+  "naturalPronunciation": "發音輔助（ja/ko 必填，en 省略）",
+  "naturalMeaningZh": "更自然版中文意思（naturalAlreadyGood 時可省略）",
+  "naturalAlreadyGood": false,
+  "tipZh": "💡 小提醒：繁中簡短說明（1～2 重點，不要太多文法術語）",
+  "followUp": "🗣️ 接著聊：一句自然的延伸問題（目標語言）",
+  "followUpPronunciation": "發音輔助（ja/ko 必填，en 省略）",
+  "followUpMeaningZh": "接著聊的中文意思"
 }`
+
+interface CoachFeedbackPayload {
+  corrected: string
+  correctedPronunciation?: string
+  correctedMeaningZh?: string
+  natural: string
+  naturalPronunciation?: string
+  naturalMeaningZh?: string
+  naturalAlreadyGood?: boolean
+  tipZh: string
+  followUp: string
+  followUpPronunciation?: string
+  followUpMeaningZh?: string
+}
+
+function mapCoachFeedbackPayload(
+  language: CoachLanguage,
+  payload: CoachFeedbackPayload,
+): {
+  coachFeedback: CoachFeedbackPayload
+  reply: string
+  replyMeaningZh: string
+  replyPronunciation?: string
+} {
+  const stripPron = language === 'en'
+
+  const coachFeedback: CoachFeedbackPayload = {
+    corrected: payload.corrected,
+    correctedPronunciation: stripPron ? undefined : payload.correctedPronunciation,
+    correctedMeaningZh: payload.correctedMeaningZh,
+    natural: payload.natural,
+    naturalPronunciation: stripPron ? undefined : payload.naturalPronunciation,
+    naturalMeaningZh: payload.naturalMeaningZh,
+    naturalAlreadyGood: payload.naturalAlreadyGood,
+    tipZh: payload.tipZh,
+    followUp: payload.followUp,
+    followUpPronunciation: stripPron ? undefined : payload.followUpPronunciation,
+    followUpMeaningZh: payload.followUpMeaningZh,
+  }
+
+  return {
+    coachFeedback,
+    reply: payload.followUp,
+    replyMeaningZh: payload.followUpMeaningZh ?? '',
+    replyPronunciation: stripPron ? undefined : payload.followUpPronunciation,
+  }
+}
 
 export async function generateFreeChatReply(
   language: CoachLanguage,
   history: ChatTurn[],
   userMessage: string,
   learningSummary?: string,
+  inputMode: CoachInputMode = 'practice-language',
 ): Promise<{
   reply: string
   replyMeaningZh: string
   replyPronunciation?: string
-  coachingZh?: string
-  guidanceZh?: string
-  hint?: { text: string; meaningZh: string; pronunciation?: string }
+  coachFeedback: CoachFeedbackPayload
 }> {
   const system = `${FREE_CHAT_PROMPT}
 ${languageInstruction(language)}
+${inputModeInstruction(inputMode)}
 
 這是「自由聊天」模式，沒有旅行情境或角色扮演。
 ${learningSummary?.trim() ? `\n使用者學習摘要（可用來客製化回覆）：\n${learningSummary.trim()}\n` : ''}
 
-範例（學習英文，使用者：Hello）：
-reply: "Hello! What would you like to talk about today?"
-replyMeaningZh: "嗨！今天想聊什麼呢？"
-isCoaching: false
+範例（練習英文，使用者：I'm not busy today am engineer）：
+corrected: "I'm not busy today. I'm an engineer."
+natural: "I'm free today. I work as an engineer."
+tipZh: "「am engineer」前面需要主詞，應該說 \\"I'm an engineer\\"。如果想表達職業，英文常說 \\"I work as an engineer.\\""
+followUp: "What kind of engineering do you do?"
+followUpMeaningZh: "你做哪一種工程呢？"
 
-範例（學習英文，使用者中文：我想說今天天氣很好）：
-isCoaching: true
-coachingZh: "可以這樣說："
-reply: "The weather is really nice today."
-replyMeaningZh: "今天天氣真的很好。"
+範例（中文問教練，使用者：我想說今天天氣很好）：
+corrected: "The weather is really nice today."
+natural: "It's such a beautiful day today."
+tipZh: "形容天氣好，nice 或 beautiful 都很常用。"
+followUp: "Are you going out to enjoy the weather?"
 
-${CONVERSATION_REPLY_JSON}`
+${COACH_FEEDBACK_JSON}`
 
   const user = `完整聊天紀錄：
 ${formatHistory(history)}
 
 使用者最新輸入：${userMessage}`
 
-  const result = await callOpenAiJson<{
-    isCoaching?: boolean
-    coachingZh?: string
-    reply: string
-    replyMeaningZh: string
-    replyPronunciation?: string
-    guidanceZh?: string
-    hint?: { text: string; meaningZh: string; pronunciation?: string }
-  }>(system, user)
-
-  return {
-    reply: result.reply,
-    replyMeaningZh: result.replyMeaningZh,
-    replyPronunciation: result.replyPronunciation,
-    coachingZh: result.isCoaching ? result.coachingZh : undefined,
-    guidanceZh: result.guidanceZh,
-    hint: result.hint,
-  }
+  const result = await callOpenAiJson<CoachFeedbackPayload>(system, user)
+  return mapCoachFeedbackPayload(language, result)
 }
 
 export async function generateConversationReply(
@@ -263,16 +320,17 @@ export async function generateConversationReply(
   history: ChatTurn[],
   userMessage: string,
   learningSummary?: string,
+  inputMode: CoachInputMode = 'practice-language',
 ): Promise<{
   reply: string
   replyMeaningZh: string
   replyPronunciation?: string
-  coachingZh?: string
-  guidanceZh?: string
+  coachFeedback: CoachFeedbackPayload
   hint?: { text: string; meaningZh: string; pronunciation?: string }
 }> {
   const system = `${SCENARIO_PRACTICE_PROMPT}
 ${languageInstruction(context.language)}
+${inputModeInstruction(inputMode)}
 
 目前練習設定（情境練習模式）：
 - 旅行情境：${context.scenarioTitle}
@@ -282,36 +340,27 @@ ${languageInstruction(context.language)}
 ${learningSummary?.trim() ? `\n使用者學習摘要（可用來客製化回覆）：\n${learningSummary.trim()}\n` : ''}
 
 請根據完整聊天紀錄與使用者最新輸入回覆。
-- 繁體中文輸入（描述想說什麼、提問、求救）→ isCoaching=true，用目標語言教他怎麼說。
-- 目標語言輸入且合理 → isCoaching=false，角色自然接話。
-- 打招呼 → 以角色身份自然回應，延續情境，isCoaching=false。
+- followUp 必須以「${context.roleLabelZh}」角色自然接話，延續「${context.scenarioTitle}」情境。
+- 同時必須完成 corrected / natural / tipZh 教練回饋。
 
-教學模式 JSON 範例（使用者中文：我想問這班車會不會到東京）：
-coachingZh「可以這樣說：」、reply 為目標語言句子、replyPronunciation、replyMeaningZh、guidanceZh「你可以試著說一次。」
-
-${CONVERSATION_REPLY_JSON}`
+${COACH_FEEDBACK_JSON}
+可選附加欄位（若適合給下一句提示）：
+"hint": { "text": "下一句可試著說的目標語言", "meaningZh": "繁中意思", "pronunciation": "發音輔助" }`
 
   const user = `完整聊天紀錄：
 ${formatHistory(history)}
 
 使用者最新輸入：${userMessage}`
 
-  const result = await callOpenAiJson<{
-    isCoaching?: boolean
-    coachingZh?: string
-    reply: string
-    replyMeaningZh: string
-    replyPronunciation?: string
-    guidanceZh?: string
-    hint?: { text: string; meaningZh: string; pronunciation?: string }
-  }>(system, user)
+  const result = await callOpenAiJson<
+    CoachFeedbackPayload & {
+      hint?: { text: string; meaningZh: string; pronunciation?: string }
+    }
+  >(system, user)
 
+  const mapped = mapCoachFeedbackPayload(context.language, result)
   return {
-    reply: result.reply,
-    replyMeaningZh: result.replyMeaningZh,
-    replyPronunciation: result.replyPronunciation,
-    coachingZh: result.isCoaching ? result.coachingZh : undefined,
-    guidanceZh: result.guidanceZh,
+    ...mapped,
     hint: result.hint,
   }
 }

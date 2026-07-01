@@ -96,6 +96,10 @@ export async function processAiCoachRequest(body: unknown): Promise<AiCoachResul
       case 'free-chat-reply': {
         const { language, history, userMessage } = payload
         const learningSummary = typeof payload.learningSummary === 'string' ? payload.learningSummary : ''
+        const inputMode =
+          payload.inputMode === 'zh-coach' || payload.inputMode === 'practice-language'
+            ? payload.inputMode
+            : 'practice-language'
 
         if (!isCoachLanguage(language)) {
           return invalidBody('Invalid language')
@@ -109,6 +113,7 @@ export async function processAiCoachRequest(body: unknown): Promise<AiCoachResul
           history as { role: 'user' | 'assistant'; text: string }[],
           userMessage,
           learningSummary,
+          inputMode,
         )
         return { status: 200, data }
       }
@@ -126,6 +131,10 @@ export async function processAiCoachRequest(body: unknown): Promise<AiCoachResul
           userMessage,
         } = payload
         const learningSummary = typeof payload.learningSummary === 'string' ? payload.learningSummary : ''
+        const inputMode =
+          payload.inputMode === 'zh-coach' || payload.inputMode === 'practice-language'
+            ? payload.inputMode
+            : 'practice-language'
 
         if (!isCoachLanguage(language)) {
           return invalidBody('Invalid language')
@@ -158,6 +167,7 @@ export async function processAiCoachRequest(body: unknown): Promise<AiCoachResul
           history as { role: 'user' | 'assistant'; text: string }[],
           userMessage,
           learningSummary,
+          inputMode,
         )
         return { status: 200, data }
       }

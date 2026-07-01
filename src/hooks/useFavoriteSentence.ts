@@ -6,7 +6,12 @@ import {
   toggleFavoriteSentence,
 } from '../utils/favoriteSentenceStorage'
 
-export function useFavoriteSentence(input: FavoriteSentenceInput) {
+interface UseFavoriteSentenceOptions {
+  isPro?: boolean
+  onFavoriteLimitReached?: () => void
+}
+
+export function useFavoriteSentence(input: FavoriteSentenceInput, options?: UseFavoriteSentenceOptions) {
   const [favorited, setFavorited] = useState(() => isFavoriteSentence(input.id))
 
   useEffect(() => {
@@ -18,9 +23,13 @@ export function useFavoriteSentence(input: FavoriteSentenceInput) {
   }, [input.id])
 
   const toggle = useCallback(() => {
-    const next = toggleFavoriteSentence(input)
+    const next = toggleFavoriteSentence(input, { isPro: options?.isPro })
+    if (next === 'limit-reached') {
+      options?.onFavoriteLimitReached?.()
+      return
+    }
     setFavorited(next)
-  }, [input])
+  }, [input, options?.isPro, options?.onFavoriteLimitReached])
 
   return { favorited, toggle }
 }
