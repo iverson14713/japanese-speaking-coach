@@ -22,7 +22,7 @@ import { LanguageSelector } from '../LanguageSelector'
 import { FavoriteButton } from '../FavoriteButton'
 import { buildFavoriteFromChallengeQuestion } from '../../utils/favoriteSentenceBuilders'
 
-type GamePhase = 'setup' | 'answering' | 'result' | 'summary'
+type ChallengeStatus = 'idle' | 'listening' | 'processing' | 'result' | 'error' | 'summary'
 
 interface QuickSpeakChallengeOverlayProps {
   open: boolean
@@ -41,10 +41,10 @@ export function QuickSpeakChallengeOverlay({
 
   const [language, setLanguage] = useState(initialLanguage)
   const [scenario, setScenario] = useState<TranslationScenarioId>(DEFAULT_TRANSLATION_SCENARIO)
-  const [phase, setPhase] = useState<GamePhase>('setup')
+  const [status, setStatus] = useState<ChallengeStatus>('idle')
   const [questions, setQuestions] = useState<TranslationChallengeQuestion[]>([])
   const [questionIndex, setQuestionIndex] = useState(0)
-  const [answerSecondsLeft, setAnswerSecondsLeft] = useState(answerTimeSeconds)
+  const [countdown, setCountdown] = useState(answerTimeSeconds)
   const [transcript, setTranscript] = useState('')
   const [speechError, setSpeechError] = useState<string | null>(null)
   const [roundResults, setRoundResults] = useState<TranslationChallengeRoundResult[]>([])
@@ -54,11 +54,20 @@ export function QuickSpeakChallengeOverlay({
   const [practiceRecorded, setPracticeRecorded] = useState(false)
 
   const recordPractice = useRecordPracticeCompletion(language)
-  const finishingRef = useRef(false)
-  const listeningStartedRef = useRef(false)
+  const statusRef = useRef<ChallengeStatus>('idle')
+  const countdownRef = useRef(answerTimeSeconds)
+  const answerEndedRef = useRef(false)
+  const finishCalledRef = useRef(false)
+  const questionSessionRef = useRef(0)
+  const micStartedRef = useRef(false)
+  const latestTranscriptRef = useRef('')
   const currentQuestion = questions[questionIndex]
 
   useBodyScrollLock(open)
+
+  useEffect(() => {
+    statusRef.current = status
+  }, [status])
 
   useEffect(() => {
     if (open) {
@@ -67,13 +76,20 @@ export function QuickSpeakChallengeOverlay({
   }, [open, initialLanguage])
 
   const handleRecognitionResult = useCallback((text: string) => {
+    latestTranscriptRef.current = text
     setTranscript(text)
     setSpeechError(null)
   }, [])
 
   const handleRecognitionError = useCallback((message: string) => {
+    latestTranscriptRef.current = ''
     setTranscript('')
     setSpeechError(message)
+
+    if (statusRef.current === 'listening' && !answerEndedRef.current) {
+      stopListeningRef.current()
+      setStatus('error')
+    }
   }, [])
 
   const {
@@ -91,12 +107,29 @@ export function QuickSpeakChallengeOverlay({
   const stopListeningRef = useRef(stopListening)
   stopListeningRef.current = stopListening
 
+  const startListeningRef = useRef(startListening)
+  startListeningRef.current = startListening
+
+  const resetQuestionRuntime = useCallback(() => {
+    countdownRef.current = answerTimeSeconds
+    setCountdown(answerTimeSeconds)
+    answerEndedRef.current = false
+    finishCalledRef.current = false
+    micStartedRef.current = false
+    latestTranscriptRef.current = ''
+    setTranscript('')
+    setSpeechError(null)
+    setCurrentResult(null)
+  }, [answerTimeSeconds])
+
   const resetSession = useCallback(() => {
     stopListeningRef.current()
-    setPhase('setup')
+    questionSessionRef.current += 1
+    setStatus('idle')
     setQuestions([])
     setQuestionIndex(0)
-    setAnswerSecondsLeft(answerTimeSeconds)
+    countdownRef.current = answerTimeSeconds
+    setCountdown(answerTimeSeconds)
     setTranscript('')
     setSpeechError(null)
     setRoundResults([])
@@ -104,8 +137,10 @@ export function QuickSpeakChallengeOverlay({
     setSummaryExp(0)
     setStreakAfterRound(null)
     setPracticeRecorded(false)
-    finishingRef.current = false
-    listeningStartedRef.current = false
+    answerEndedRef.current = false
+    finishCalledRef.current = false
+    micStartedRef.current = false
+    latestTranscriptRef.current = ''
     stopSpeaking()
   }, [answerTimeSeconds])
 
@@ -121,17 +156,14 @@ export function QuickSpeakChallengeOverlay({
     }
   }, [open, resetSession])
 
-  const finalizeAnswering = useCallback(
-    (heardText: string, errorMessage: string | null) => {
-      if (!currentQuestion || finishingRef.current) {
+  const finishChallenge = useCallback(
+    (heardText: string) => {
+      if (!currentQuestion || finishCalledRef.current || !answerEndedRef.current) {
         return
       }
-      finishingRef.current = true
+      finishCalledRef.current = true
 
-      const scoreResult = errorMessage
-        ? { score: 0, feedback: errorMessage }
-        : scoreTranslationChallenge(heardText, currentQuestion)
-
+      const scoreResult = scoreTranslationChallenge(heardText, currentQuestion)
       const exp = Math.round((scoreResult.score / 100) * EXP_PER_QUESTION)
       const result: TranslationChallengeRoundResult = {
         questionId: currentQuestion.id,
@@ -143,73 +175,83 @@ export function QuickSpeakChallengeOverlay({
 
       setCurrentResult(result)
       setRoundResults((current) => [...current, result])
-      setPhase('result')
+      setStatus('result')
     },
     [currentQuestion],
   )
 
   const beginQuestion = useCallback(() => {
-    setTranscript('')
-    setSpeechError(null)
-    setAnswerSecondsLeft(answerTimeSeconds)
-    finishingRef.current = false
-    listeningStartedRef.current = false
-    setPhase('answering')
+    questionSessionRef.current += 1
+    resetQuestionRuntime()
     stopSpeaking()
-  }, [answerTimeSeconds])
+    setStatus('listening')
+  }, [resetQuestionRuntime])
 
   useEffect(() => {
-    if (phase !== 'answering' || !currentQuestion) {
-      listeningStartedRef.current = false
+    if (status !== 'listening' || !currentQuestion) {
       return
     }
 
-    if (listeningStartedRef.current) {
+    if (micStartedRef.current) {
       return
     }
+    micStartedRef.current = true
 
-    listeningStartedRef.current = true
-    void startListening()
-  }, [phase, currentQuestion, startListening])
+    void startListeningRef.current()
+  }, [status, currentQuestion, questionIndex])
 
   useEffect(() => {
-    if (phase !== 'answering') {
+    if (status !== 'listening') {
       return
     }
 
-    if (answerSecondsLeft <= 0) {
-      stopListening()
+    const sessionId = questionSessionRef.current
+
+    if (countdownRef.current <= 0) {
       return
     }
 
     const timer = window.setTimeout(() => {
-      setAnswerSecondsLeft((current) => current - 1)
+      if (questionSessionRef.current !== sessionId || statusRef.current !== 'listening') {
+        return
+      }
+
+      const next = countdownRef.current - 1
+      countdownRef.current = next
+      setCountdown(next)
+
+      if (next <= 0) {
+        answerEndedRef.current = true
+        stopListeningRef.current()
+        setStatus('processing')
+      }
     }, 1000)
 
     return () => {
       window.clearTimeout(timer)
     }
-  }, [phase, answerSecondsLeft, stopListening])
+  }, [status, countdown, currentQuestion, questionIndex])
 
   useEffect(() => {
-    if (phase !== 'answering' || isListening) {
+    if (status !== 'processing' || isListening) {
       return
     }
 
-    if (finishingRef.current) {
+    if (!answerEndedRef.current || finishCalledRef.current) {
       return
     }
 
-    finalizeAnswering(transcript, speechError)
-  }, [phase, isListening, transcript, speechError, finalizeAnswering])
+    const heardText = (latestTranscriptRef.current || transcript || interimTranscript).trim()
+    finishChallenge(heardText)
+  }, [status, isListening, transcript, interimTranscript, finishChallenge])
 
   useEffect(() => {
-    if (phase !== 'result' || !currentQuestion) {
+    if (status !== 'result' || !currentQuestion) {
       return
     }
 
     speakText(currentQuestion.answer, language)
-  }, [phase, currentQuestion, language])
+  }, [status, currentQuestion, language])
 
   const startRound = () => {
     const picked = pickRoundQuestions(language, scenario, QUESTIONS_PER_ROUND)
@@ -220,7 +262,6 @@ export function QuickSpeakChallengeOverlay({
     setQuestions(picked)
     setQuestionIndex(0)
     setRoundResults([])
-    setCurrentResult(null)
     beginQuestion()
   }
 
@@ -229,7 +270,6 @@ export function QuickSpeakChallengeOverlay({
       return
     }
     setRoundResults((current) => current.slice(0, -1))
-    setCurrentResult(null)
     beginQuestion()
   }
 
@@ -246,12 +286,11 @@ export function QuickSpeakChallengeOverlay({
         onPracticeRecorded?.()
       }
 
-      setPhase('summary')
+      setStatus('summary')
       return
     }
 
     setQuestionIndex((current) => current + 1)
-    setCurrentResult(null)
     beginQuestion()
   }
 
@@ -292,7 +331,7 @@ export function QuickSpeakChallengeOverlay({
         </header>
 
         <div className="translation-challenge-overlay__body">
-          {phase === 'setup' ? (
+          {status === 'idle' ? (
             <section className="translation-challenge-setup">
               <LanguageSelector selected={language} onSelect={setLanguage} variant="coach" />
 
@@ -334,7 +373,7 @@ export function QuickSpeakChallengeOverlay({
             </section>
           ) : null}
 
-          {phase === 'answering' && currentQuestion ? (
+          {status === 'listening' && currentQuestion ? (
             <section
               className="translation-challenge-play translation-challenge-play--recording quick-speak-answering"
               aria-live="polite"
@@ -346,9 +385,7 @@ export function QuickSpeakChallengeOverlay({
               <p className="translation-challenge-play__chinese">{currentQuestion.chinese}</p>
 
               <div className="translation-challenge-countdown" aria-hidden="true">
-                <span className="translation-challenge-countdown__num">
-                  {answerSecondsLeft > 0 ? answerSecondsLeft : '時間到'}
-                </span>
+                <span className="translation-challenge-countdown__num">{countdown}</span>
               </div>
 
               <p className="translation-challenge-play__hint">
@@ -368,7 +405,33 @@ export function QuickSpeakChallengeOverlay({
             </section>
           ) : null}
 
-          {phase === 'result' && currentQuestion && currentResult ? (
+          {status === 'processing' ? (
+            <section className="translation-challenge-play quick-speak-answering" aria-live="polite">
+              <p className="translation-challenge-play__hint">正在整理你的回答…</p>
+              <div className="translation-challenge-recording">
+                <span className="pulse-dot" aria-hidden="true" />
+                <span className="translation-challenge-recording__label">處理中</span>
+              </div>
+            </section>
+          ) : null}
+
+          {status === 'error' ? (
+            <section className="translation-challenge-setup">
+              <p className="translation-challenge-setup__warning" role="alert">
+                {speechError ?? '麥克風或語音辨識發生錯誤，請再試一次。'}
+              </p>
+              <div className="translation-challenge-result__actions">
+                <button type="button" className="translation-challenge-secondary" onClick={resetSession}>
+                  返回設定
+                </button>
+                <button type="button" className="translation-challenge-primary" onClick={beginQuestion}>
+                  再試一次
+                </button>
+              </div>
+            </section>
+          ) : null}
+
+          {status === 'result' && currentQuestion && currentResult ? (
             <section className="translation-challenge-result">
               <p className="translation-challenge-result__timeup">時間到！來看看標準說法</p>
               <p className="translation-challenge-result__score">{currentResult.score} 分</p>
@@ -419,7 +482,7 @@ export function QuickSpeakChallengeOverlay({
             </section>
           ) : null}
 
-          {phase === 'summary' ? (
+          {status === 'summary' ? (
             <section className="translation-challenge-summary">
               <p className="translation-challenge-summary__title">本輪結算</p>
               <dl className="translation-challenge-summary__stats">
