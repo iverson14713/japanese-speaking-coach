@@ -22,7 +22,14 @@ import { LanguageSelector } from '../LanguageSelector'
 import { FavoriteButton } from '../FavoriteButton'
 import { buildFavoriteFromChallengeQuestion } from '../../utils/favoriteSentenceBuilders'
 
-type ChallengeStatus = 'idle' | 'listening' | 'processing' | 'result' | 'error' | 'summary'
+type ChallengeStatus =
+  | 'idle'
+  | 'micStarting'
+  | 'listening'
+  | 'processing'
+  | 'result'
+  | 'error'
+  | 'summary'
 
 interface QuickSpeakChallengeOverlayProps {
   open: boolean
@@ -61,13 +68,26 @@ export function QuickSpeakChallengeOverlay({
   const questionSessionRef = useRef(0)
   const micStartedRef = useRef(false)
   const latestTranscriptRef = useRef('')
+  const challengeStartedRef = useRef(false)
+  const hasStartedListeningRef = useRef(false)
+  const prevOpenRef = useRef(open)
   const currentQuestion = questions[questionIndex]
 
   useBodyScrollLock(open)
 
   useEffect(() => {
+    console.log('[Challenge] mount', { status, countdown })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
     statusRef.current = status
+    console.log('[Challenge] status changed', status)
   }, [status])
+
+  useEffect(() => {
+    console.log('[Challenge] countdown changed', countdown)
+  }, [countdown])
 
   useEffect(() => {
     if (open) {
@@ -87,6 +107,7 @@ export function QuickSpeakChallengeOverlay({
     setSpeechError(message)
 
     if (statusRef.current === 'listening' && !answerEndedRef.current) {
+      console.log('[Challenge] stopListening called by', 'recognitionError')
       stopListeningRef.current()
       setStatus('error')
     }
@@ -117,12 +138,14 @@ export function QuickSpeakChallengeOverlay({
     finishCalledRef.current = false
     micStartedRef.current = false
     latestTranscriptRef.current = ''
+    hasStartedListeningRef.current = false
     setTranscript('')
     setSpeechError(null)
     setCurrentResult(null)
   }, [answerTimeSeconds])
 
   const resetSession = useCallback(() => {
+    console.log('[Challenge] stopListening called by', 'resetSession')
     stopListeningRef.current()
     questionSessionRef.current += 1
     setStatus('idle')
@@ -141,6 +164,8 @@ export function QuickSpeakChallengeOverlay({
     finishCalledRef.current = false
     micStartedRef.current = false
     latestTranscriptRef.current = ''
+    challengeStartedRef.current = false
+    hasStartedListeningRef.current = false
     stopSpeaking()
   }, [answerTimeSeconds])
 
@@ -151,14 +176,40 @@ export function QuickSpeakChallengeOverlay({
   }, [onClose])
 
   useEffect(() => {
+    // Important: overlay component is not unmounted (it returns null when open=false),
+    // so we must reset on open transitions to avoid reusing previous result state.
+    const wasOpen = prevOpenRef.current
+    prevOpenRef.current = open
+
     if (!open) {
+      resetSession()
+      return
+    }
+
+    if (open && !wasOpen) {
       resetSession()
     }
   }, [open, resetSession])
 
   const finishChallenge = useCallback(
     (heardText: string) => {
-      if (!currentQuestion || finishCalledRef.current || !answerEndedRef.current) {
+      console.log('[Challenge] finishChallenge called', {
+        status: statusRef.current,
+        countdown: countdownRef.current,
+        answerEnded: answerEndedRef.current,
+        finishCalled: finishCalledRef.current,
+        transcript,
+        stack: new Error().stack,
+      })
+
+      if (
+        !currentQuestion ||
+        statusRef.current !== 'processing' ||
+        !challengeStartedRef.current ||
+        !hasStartedListeningRef.current ||
+        finishCalledRef.current ||
+        !answerEndedRef.current
+      ) {
         return
       }
       finishCalledRef.current = true
@@ -175,6 +226,11 @@ export function QuickSpeakChallengeOverlay({
 
       setCurrentResult(result)
       setRoundResults((current) => [...current, result])
+      console.log('[Challenge] set result called from...', {
+        reason: 'finishChallenge',
+        status: statusRef.current,
+        countdown: countdownRef.current,
+      })
       setStatus('result')
     },
     [currentQuestion],
@@ -184,11 +240,18 @@ export function QuickSpeakChallengeOverlay({
     questionSessionRef.current += 1
     resetQuestionRuntime()
     stopSpeaking()
-    setStatus('listening')
+    challengeStartedRef.current = true
+    setStatus('micStarting')
+    console.log('[Challenge] startQuestion', {
+      answerTimeSeconds,
+      countdown: countdownRef.current,
+      status: statusRef.current,
+      questionId: currentQuestion?.id,
+    })
   }, [resetQuestionRuntime])
 
   useEffect(() => {
-    if (status !== 'listening' || !currentQuestion) {
+    if (status !== 'micStarting' || !currentQuestion) {
       return
     }
 
@@ -197,7 +260,56 @@ export function QuickSpeakChallengeOverlay({
     }
     micStartedRef.current = true
 
-    void startListeningRef.current()
+    const sessionId = questionSessionRef.current
+    void (async () => {
+      try {
+        await startListeningRef.current()
+      } catch (error) {
+        if (questionSessionRef.current !== sessionId) {
+          return
+        }
+        setSpeechError('麥克風啟動失敗，請再試一次。')
+        setStatus('error')
+        return
+      }
+    })()
+  }, [status, currentQuestion, questionIndex])
+
+  useEffect(() => {
+    if (status !== 'micStarting') {
+      return
+    }
+
+    // SpeechRecognition onstart may lag; only transition after we see it actually listening.
+    if (isListening) {
+      hasStartedListeningRef.current = true
+      setStatus('listening')
+    }
+  }, [status, isListening])
+
+  useEffect(() => {
+    // If mic never starts, keep user in micStarting (do NOT finalize).
+    if (status !== 'micStarting') {
+      return
+    }
+
+    const sessionId = questionSessionRef.current
+    const timer = window.setTimeout(() => {
+      if (questionSessionRef.current !== sessionId) {
+        return
+      }
+      if (statusRef.current !== 'micStarting') {
+        return
+      }
+      if (hasStartedListeningRef.current) {
+        return
+      }
+      // Still not started; stay in micStarting. (No forced result)
+    }, 1200)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
   }, [status, currentQuestion, questionIndex])
 
   useEffect(() => {
@@ -222,6 +334,7 @@ export function QuickSpeakChallengeOverlay({
 
       if (next <= 0) {
         answerEndedRef.current = true
+        console.log('[Challenge] stopListening called by', 'countdownEnded')
         stopListeningRef.current()
         setStatus('processing')
       }
@@ -241,8 +354,18 @@ export function QuickSpeakChallengeOverlay({
       return
     }
 
-    const heardText = (latestTranscriptRef.current || transcript || interimTranscript).trim()
-    finishChallenge(heardText)
+    const sessionId = questionSessionRef.current
+    const timer = window.setTimeout(() => {
+      if (questionSessionRef.current !== sessionId) {
+        return
+      }
+      const heardText = (latestTranscriptRef.current || transcript || interimTranscript).trim()
+      finishChallenge(heardText)
+    }, 500)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
   }, [status, isListening, transcript, interimTranscript, finishChallenge])
 
   useEffect(() => {
@@ -370,6 +493,32 @@ export function QuickSpeakChallengeOverlay({
               >
                 開始挑戰
               </button>
+            </section>
+          ) : null}
+
+          {status === 'micStarting' && currentQuestion ? (
+            <section
+              className="translation-challenge-play translation-challenge-play--recording quick-speak-answering"
+              aria-live="polite"
+            >
+              <p className="translation-challenge-play__meta">
+                第 {questionIndex + 1} / {questions.length} 題
+              </p>
+              <p className="translation-challenge-play__prompt-label">中文題目</p>
+              <p className="translation-challenge-play__chinese">{currentQuestion.chinese}</p>
+
+              <div className="translation-challenge-countdown" aria-hidden="true">
+                <span className="translation-challenge-countdown__num">{countdown}</span>
+              </div>
+
+              <p className="translation-challenge-play__hint">
+                請在 {answerTimeSeconds} 秒內說出外語
+              </p>
+
+              <div className="translation-challenge-recording">
+                <span className="pulse-dot" aria-hidden="true" />
+                <span className="translation-challenge-recording__label">正在啟動麥克風…</span>
+              </div>
             </section>
           ) : null}
 
