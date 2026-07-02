@@ -13,7 +13,9 @@ import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition'
 import { generateTranslationCoachReport } from '../../services/ai/coachService'
 import type { TranslationCoachReport, TranslationCoachReportItem } from '../../services/ai/types'
+import { scoreTranslationChallenge } from '../../utils/translationChallengeScore'
 import { speakText, stopSpeaking } from '../../utils/speechSynthesis'
+import { showToast } from '../../utils/toast'
 import { LanguageSelector } from '../LanguageSelector'
 import { FavoriteButton } from '../FavoriteButton'
 import { buildFavoriteFromChallengeQuestion } from '../../utils/favoriteSentenceBuilders'
@@ -72,6 +74,8 @@ export function AiTranslationCoachOverlay({
   const finishCalledRef = useRef(false)
   const latestTranscriptRef = useRef('')
   const stopListeningRef = useRef<() => void>(() => undefined)
+  const hasAutoPlayedAnswerRef = useRef(false)
+  const autoPlayTimeoutRef = useRef<number | null>(null)
 
   const currentQuestion = questions[questionIndex]
 
@@ -111,6 +115,11 @@ export function AiTranslationCoachOverlay({
   }, [interimTranscript])
 
   const resetAll = useCallback(() => {
+    if (autoPlayTimeoutRef.current !== null) {
+      window.clearTimeout(autoPlayTimeoutRef.current)
+      autoPlayTimeoutRef.current = null
+    }
+    hasAutoPlayedAnswerRef.current = false
     sessionRef.current += 1
     questionSessionRef.current += 1
     micStartedRef.current = false
@@ -139,6 +148,11 @@ export function AiTranslationCoachOverlay({
   }, [open, resetAll])
 
   const beginQuestion = useCallback(() => {
+    if (autoPlayTimeoutRef.current !== null) {
+      window.clearTimeout(autoPlayTimeoutRef.current)
+      autoPlayTimeoutRef.current = null
+    }
+    hasAutoPlayedAnswerRef.current = false
     questionSessionRef.current += 1
     micStartedRef.current = false
     hasStartedListeningRef.current = false
@@ -301,6 +315,11 @@ export function AiTranslationCoachOverlay({
   }
 
   const goNext = async () => {
+    if (autoPlayTimeoutRef.current !== null) {
+      window.clearTimeout(autoPlayTimeoutRef.current)
+      autoPlayTimeoutRef.current = null
+    }
+    hasAutoPlayedAnswerRef.current = false
     stopSpeaking()
 
     if (questionIndex + 1 < questions.length) {
@@ -336,6 +355,99 @@ export function AiTranslationCoachOverlay({
     const spoken = answers.filter((item) => !item.skipped && item.userAnswer.trim()).length
     return Math.round((spoken / answers.length) * 100)
   }, [answers])
+
+  const scenarioLabel = useMemo(
+    () => TRANSLATION_SCENARIOS.find((item) => item.id === scenario)?.label ?? '旅行情境',
+    [scenario],
+  )
+
+  const progressPercent = useMemo(() => {
+    if (questions.length === 0) return 0
+    const current = Math.min(questionIndex + 1, questions.length)
+    return Math.round((current / questions.length) * 100)
+  }, [questionIndex, questions.length])
+
+  const lastAnswer = answers.length > 0 ? answers[answers.length - 1] : null
+  const perQuestionFeedback = useMemo(() => {
+    if (!currentQuestion || !lastAnswer) {
+      return null
+    }
+    if (lastAnswer.skipped) {
+      return '這題先跳過也沒關係，下一題再試一次。'
+    }
+    const score = scoreTranslationChallenge(lastAnswer.userAnswer, currentQuestion)
+    return score.feedback
+  }, [currentQuestion, lastAnswer])
+
+  useEffect(() => {
+    if (status !== 'perQuestionResult' || !currentQuestion?.answer) {
+      return
+    }
+
+    if (hasAutoPlayedAnswerRef.current) {
+      return
+    }
+    hasAutoPlayedAnswerRef.current = true
+
+    if (autoPlayTimeoutRef.current !== null) {
+      window.clearTimeout(autoPlayTimeoutRef.current)
+      autoPlayTimeoutRef.current = null
+    }
+
+    const answer = currentQuestion.answer
+    const lang = language
+    autoPlayTimeoutRef.current = window.setTimeout(() => {
+      autoPlayTimeoutRef.current = null
+      speakText(answer, lang)
+    }, 420)
+
+    return () => {
+      if (autoPlayTimeoutRef.current !== null) {
+        window.clearTimeout(autoPlayTimeoutRef.current)
+        autoPlayTimeoutRef.current = null
+      }
+    }
+  }, [status, currentQuestion, language])
+
+  const shareReport = async () => {
+    if (!report) {
+      return
+    }
+    const lines = [
+      'AI 翻譯教練｜本輪練習報告',
+      report.overall,
+      '',
+      `有效作答率：${averageAnsweredRatio}%（5 題）`,
+      `目標語言：${LANGUAGE_LABELS[language]}`,
+      '',
+      '3 句更自然說法：',
+      ...report.moreNaturalPhrases.map((item) => `- ${item}`),
+      '',
+      `鼓勵一句：${report.encouragement}`,
+      '',
+      'Japanese Speaking Coach',
+    ]
+    const text = lines.join('\n')
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'AI 翻譯教練｜本輪練習報告',
+          text,
+        })
+        return
+      }
+    } catch {
+      // fall through to clipboard
+    }
+
+    try {
+      await navigator.clipboard.writeText(text)
+      showToast('已複製報告文字，可直接貼上分享')
+    } catch {
+      showToast('分享失敗，請手動截圖分享')
+    }
+  }
 
   if (!open) {
     return null
@@ -408,36 +520,61 @@ export function AiTranslationCoachOverlay({
 
           {(status === 'micStarting' || status === 'listening') && currentQuestion ? (
             <section className="translation-coach-play" aria-live="polite">
-              <p className="translation-challenge-play__meta">
-                第 {questionIndex + 1} / {questions.length} 題
-              </p>
-              <p className="translation-challenge-play__prompt-label">中文題目</p>
-              <p className="translation-challenge-play__chinese">{currentQuestion.chinese}</p>
-
-              <p className="translation-coach-play__hint">慢慢說，AI 會在結束後幫你整理</p>
-
-              <div className="translation-coach-timer">
-                <span className="translation-coach-timer__label">剩餘</span>
-                <span className="translation-coach-timer__value">{secondsLeft}s</span>
+              <div className="translation-coach-progress">
+                <div className="translation-coach-progress__row">
+                  <span className="translation-coach-progress__label">
+                    第 {questionIndex + 1} / {questions.length} 題
+                  </span>
+                  <span className="translation-coach-progress__pill">{scenarioLabel}</span>
+                </div>
+                <div className="translation-coach-progress__bar" aria-hidden="true">
+                  <span
+                    className="translation-coach-progress__bar-fill"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
               </div>
 
-              <div className="translation-challenge-recording">
-                <span className="pulse-dot" aria-hidden="true" />
-                <span className="translation-challenge-recording__label">
-                  {status === 'micStarting' ? '正在啟動麥克風…' : '正在聽你說…'}
-                </span>
+              <div className="translation-coach-question-card">
+                <p className="translation-coach-question-card__label">中文題目</p>
+                <p className="translation-coach-question-card__chinese">{currentQuestion.chinese}</p>
               </div>
 
-              {interimDisplay ? (
-                <p className="translation-challenge-recording__transcript">{interimDisplay}</p>
-              ) : (
-                <p className="translation-challenge-recording__hint">不用急，講完整句子也可以</p>
-              )}
+              <div className="translation-coach-recorder-card">
+                <div className="translation-coach-recorder-card__top">
+                  <div className="translation-coach-timer-pill" aria-hidden="true">
+                    <span className="translation-coach-timer-pill__ring" />
+                    <span className="translation-coach-timer-pill__text">{secondsLeft}s</span>
+                  </div>
+                  <div className="translation-coach-recorder-card__status">
+                    <span className="translation-coach-dots" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                    <span className="translation-coach-recorder-card__label">
+                      {status === 'micStarting' ? '正在啟動麥克風…' : '正在聽你說…'}
+                    </span>
+                  </div>
+                </div>
+
+                <p className="translation-coach-recorder-card__hint">慢慢說，AI 會在結束後幫你整理</p>
+
+                {interimDisplay ? (
+                  <p className="translation-challenge-recording__transcript translation-coach-transcript">
+                    {interimDisplay}
+                  </p>
+                ) : (
+                  <p className="translation-challenge-recording__hint translation-coach-transcript">
+                    不用急，講完整句子也可以
+                  </p>
+                )}
+              </div>
 
               <div className="translation-coach-actions">
                 <button
                   type="button"
-                  className="translation-challenge-secondary"
+                  className="translation-challenge-primary"
                   onClick={() => stopAndProcess('manual')}
                   disabled={status !== 'listening'}
                 >
@@ -466,38 +603,59 @@ export function AiTranslationCoachOverlay({
           ) : null}
 
           {status === 'perQuestionResult' && currentQuestion ? (
-            <section className="translation-challenge-result translation-coach-result">
-              <p className="translation-challenge-result__label">中文題目</p>
-              <p className="translation-challenge-result__chinese">{currentQuestion.chinese}</p>
-
-              <p className="translation-challenge-result__label">你的回答</p>
-              <p className="translation-challenge-result__heard">
-                {answers[answers.length - 1]?.userAnswer?.trim()
-                  ? answers[answers.length - 1].userAnswer
-                  : answers[answers.length - 1]?.skipped
-                    ? '（已跳過）'
-                    : '（沒有辨識到內容）'}
-              </p>
-
-              <div className="translation-challenge-result__answer-row">
-                <p className="translation-challenge-result__label">標準答案</p>
-                <FavoriteButton
-                  favorite={buildFavoriteFromChallengeQuestion(currentQuestion)}
-                  className="favorite-button--challenge-result"
-                />
+            <section className="translation-coach-result" aria-live="polite">
+              <div className="translation-coach-progress">
+                <div className="translation-coach-progress__row">
+                  <span className="translation-coach-progress__label">
+                    第 {questionIndex + 1} / {questions.length} 題
+                  </span>
+                  <span className="translation-coach-progress__pill">{scenarioLabel}</span>
+                </div>
+                <div className="translation-coach-progress__bar" aria-hidden="true">
+                  <span
+                    className="translation-coach-progress__bar-fill"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
               </div>
-              <p className="translation-challenge-result__answer">{currentQuestion.answer}</p>
-              {currentQuestion.romanization ? (
-                <p className="translation-challenge-result__romanization">{currentQuestion.romanization}</p>
-              ) : null}
 
-              <button
-                type="button"
-                className="translation-challenge-listen"
-                onClick={() => speakText(currentQuestion.answer, language)}
-              >
-                🔊 播放標準答案
-              </button>
+              <div className="translation-coach-result-card">
+                <p className="translation-coach-result-card__label">中文題目</p>
+                <p className="translation-coach-result-card__chinese">{currentQuestion.chinese}</p>
+
+                <p className="translation-coach-result-card__label">你的回答</p>
+                <p className="translation-coach-result-card__user">
+                  {answers[answers.length - 1]?.userAnswer?.trim()
+                    ? answers[answers.length - 1].userAnswer
+                    : answers[answers.length - 1]?.skipped
+                      ? '（已跳過）'
+                      : '（沒有辨識到內容）'}
+                </p>
+
+                <div className="translation-coach-result-card__answer-header">
+                  <p className="translation-coach-result-card__label">標準答案</p>
+                  <FavoriteButton
+                    favorite={buildFavoriteFromChallengeQuestion(currentQuestion)}
+                    className="favorite-button--challenge-result"
+                  />
+                </div>
+                <p className="translation-coach-result-card__answer">{currentQuestion.answer}</p>
+                {currentQuestion.romanization ? (
+                  <p className="translation-challenge-result__romanization">{currentQuestion.romanization}</p>
+                ) : null}
+
+                {perQuestionFeedback ? (
+                  <p className="translation-coach-result-card__feedback">{perQuestionFeedback}</p>
+                ) : null}
+
+                <button
+                  type="button"
+                  className="translation-challenge-listen"
+                  onClick={() => speakText(currentQuestion.answer, language)}
+                >
+                  🔊 再聽一次
+                </button>
+              </div>
 
               <div className="translation-challenge-result__actions">
                 <button type="button" className="translation-challenge-primary" onClick={() => void goNext()}>
@@ -516,36 +674,99 @@ export function AiTranslationCoachOverlay({
 
           {status === 'aiReport' && report ? (
             <section className="translation-coach-report">
-              <p className="translation-coach-report__title">本輪 AI 翻譯教練報告</p>
-              <p className="translation-coach-report__overall">{report.overall}</p>
+              <div className="translation-coach-report__header">
+                <p className="translation-coach-report__title">本輪 AI 翻譯教練報告</p>
+                <p className="translation-coach-report__summary">{report.overall}</p>
+              </div>
 
-              <div className="translation-challenge-result__card">
-                <p className="translation-challenge-result__label">平均表現</p>
-                <p className="translation-challenge-result__heard">{report.averagePerformance}</p>
+              <div className="translation-coach-report__grid">
+                <div className="translation-coach-report-card">
+                  <p className="translation-coach-report-card__title">成績摘要</p>
+                  <div className="translation-coach-report-metrics">
+                    <div>
+                      <p className="translation-coach-report-metrics__label">有效作答率</p>
+                      <p className="translation-coach-report-metrics__value">{averageAnsweredRatio}%</p>
+                    </div>
+                    <div>
+                      <p className="translation-coach-report-metrics__label">完成題數</p>
+                      <p className="translation-coach-report-metrics__value">5 / 5</p>
+                    </div>
+                    <div>
+                      <p className="translation-coach-report-metrics__label">目標語言</p>
+                      <p className="translation-coach-report-metrics__value">{LANGUAGE_LABELS[language]}</p>
+                    </div>
+                  </div>
+                </div>
 
-                <p className="translation-challenge-result__label">你最常錯的地方</p>
-                <ul className="translation-coach-report__list">
-                  {report.commonIssues.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
+                <div className="translation-coach-report-card">
+                  <p className="translation-coach-report-card__title">你的常見問題</p>
+                  <ul className="translation-coach-report__list">
+                    {report.commonIssues.slice(0, 3).map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
 
-                <p className="translation-challenge-result__label">3 句更自然說法</p>
-                <ul className="translation-coach-report__list">
-                  {report.moreNaturalPhrases.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
+                <div className="translation-coach-report-card">
+                  <p className="translation-coach-report-card__title">3 句更自然說法</p>
+                  <ul className="translation-coach-report__phrases">
+                    {report.moreNaturalPhrases.slice(0, 3).map((item) => (
+                      <li key={item} className="translation-coach-report__phrase">
+                        <span className="translation-coach-report__phrase-text">{item}</span>
+                        <button
+                          type="button"
+                          className="translation-coach-report__phrase-play"
+                          onClick={() => speakText(item, language)}
+                          aria-label="播放句子"
+                        >
+                          🔊
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
 
-                <p className="translation-challenge-result__label">建議複習句</p>
-                <p className="translation-challenge-result__heard">{report.reviewSuggestion}</p>
+                <div className="translation-coach-report-card">
+                  <p className="translation-coach-report-card__title">建議複習</p>
+                  <p className="translation-coach-report-card__text">{report.reviewSuggestion}</p>
+                </div>
 
-                <p className="translation-challenge-result__label">鼓勵一句</p>
-                <p className="translation-challenge-result__heard">{report.encouragement}</p>
+                <div className="translation-coach-report-encourage">
+                  <p className="translation-coach-report-encourage__label">鼓勵一句</p>
+                  <p className="translation-coach-report-encourage__text">{report.encouragement}</p>
+                </div>
 
-                <p className="translation-coach-report__mini">
-                  本輪有效作答率：{averageAnsweredRatio}% · 目標語言：{LANGUAGE_LABELS[language]}
-                </p>
+                <div className="translation-coach-share-card" aria-label="可分享成績卡">
+                  <p className="translation-coach-share-card__brand">Japanese Speaking Coach</p>
+                  <p className="translation-coach-share-card__title">AI 翻譯教練</p>
+                  <p className="translation-coach-share-card__summary">{report.averagePerformance}</p>
+                  <div className="translation-coach-share-card__meta">
+                    <span>有效作答率 {averageAnsweredRatio}%</span>
+                    <span>·</span>
+                    <span>{LANGUAGE_LABELS[language]}</span>
+                  </div>
+                  <div className="translation-coach-share-card__phrases">
+                    {report.moreNaturalPhrases.slice(0, 3).map((item) => (
+                      <div key={item} className="translation-coach-share-card__phrase">
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="translation-coach-share-card__encourage">{report.encouragement}</p>
+                </div>
+              </div>
+
+              <div className="translation-coach-report__share-actions">
+                <button type="button" className="translation-challenge-primary" onClick={() => void shareReport()}>
+                  分享結果
+                </button>
+                <button
+                  type="button"
+                  className="translation-challenge-secondary"
+                  onClick={() => showToast('你可以直接截圖上方成績卡分享')}
+                >
+                  儲存成績卡
+                </button>
               </div>
 
               <div className="translation-challenge-result__actions">
