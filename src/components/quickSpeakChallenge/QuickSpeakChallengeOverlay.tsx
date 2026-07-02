@@ -71,6 +71,8 @@ export function QuickSpeakChallengeOverlay({
   const challengeStartedRef = useRef(false)
   const hasStartedListeningRef = useRef(false)
   const prevOpenRef = useRef(open)
+  const hasAutoPlayedAnswerRef = useRef(false)
+  const autoPlayTimeoutRef = useRef<number | null>(null)
   const currentQuestion = questions[questionIndex]
 
   useBodyScrollLock(open)
@@ -132,6 +134,11 @@ export function QuickSpeakChallengeOverlay({
   startListeningRef.current = startListening
 
   const resetQuestionRuntime = useCallback(() => {
+    if (autoPlayTimeoutRef.current !== null) {
+      window.clearTimeout(autoPlayTimeoutRef.current)
+      autoPlayTimeoutRef.current = null
+    }
+    hasAutoPlayedAnswerRef.current = false
     countdownRef.current = answerTimeSeconds
     setCountdown(answerTimeSeconds)
     answerEndedRef.current = false
@@ -145,6 +152,11 @@ export function QuickSpeakChallengeOverlay({
   }, [answerTimeSeconds])
 
   const resetSession = useCallback(() => {
+    if (autoPlayTimeoutRef.current !== null) {
+      window.clearTimeout(autoPlayTimeoutRef.current)
+      autoPlayTimeoutRef.current = null
+    }
+    hasAutoPlayedAnswerRef.current = false
     console.log('[Challenge] stopListening called by', 'resetSession')
     stopListeningRef.current()
     questionSessionRef.current += 1
@@ -170,6 +182,10 @@ export function QuickSpeakChallengeOverlay({
   }, [answerTimeSeconds])
 
   const handleClose = useCallback(() => {
+    if (autoPlayTimeoutRef.current !== null) {
+      window.clearTimeout(autoPlayTimeoutRef.current)
+      autoPlayTimeoutRef.current = null
+    }
     stopListeningRef.current()
     stopSpeaking()
     onClose()
@@ -373,7 +389,27 @@ export function QuickSpeakChallengeOverlay({
       return
     }
 
-    speakText(currentQuestion.answer, language)
+    if (autoPlayTimeoutRef.current !== null) {
+      window.clearTimeout(autoPlayTimeoutRef.current)
+      autoPlayTimeoutRef.current = null
+    }
+
+    if (!hasAutoPlayedAnswerRef.current && currentQuestion.answer) {
+      hasAutoPlayedAnswerRef.current = true
+      const answer = currentQuestion.answer
+      const lang = language
+      autoPlayTimeoutRef.current = window.setTimeout(() => {
+        autoPlayTimeoutRef.current = null
+        speakText(answer, lang)
+      }, 400)
+    }
+
+    return () => {
+      if (autoPlayTimeoutRef.current !== null) {
+        window.clearTimeout(autoPlayTimeoutRef.current)
+        autoPlayTimeoutRef.current = null
+      }
+    }
   }, [status, currentQuestion, language])
 
   const startRound = () => {
