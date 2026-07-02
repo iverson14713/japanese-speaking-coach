@@ -72,7 +72,7 @@ export function getProUpgradeCopy(reason: ProUpgradeReason | null): ProUpgradeCo
       return {
         title: '解鎖 AI 翻譯教練',
         subtitle:
-          '一輪 5 題中翻外語練習，AI 會幫你整理常錯句子，修正成更自然的說法。',
+          '一輪 5 題中翻外語練習，AI 會在結束後幫你整理常見錯誤，修正成更自然的說法。',
         dismissLabel: '稍後再說',
       }
     case 'pro-feature':

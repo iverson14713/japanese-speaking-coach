@@ -13,6 +13,8 @@ import type {
   FreeChatReplyRequest,
   SentenceCorrectionRequest,
   SentenceCorrectionResult,
+  TranslationCoachReport,
+  TranslationCoachReportItem,
   SuggestUserReplyRequest,
   TopicChatSession,
   TopicConversationRequest,
@@ -855,6 +857,7 @@ type CoachApiAction =
   | 'conversation-reply'
   | 'suggest-user-reply'
   | 'correct-sentence'
+  | 'translation-coach-report'
 
 function buildSuggestUserReplyApiBody(request: SuggestUserReplyRequest) {
   return {
@@ -1024,6 +1027,36 @@ export async function correctSentence(
   request: SentenceCorrectionRequest,
 ): Promise<SentenceCorrectionResult> {
   return suggestUserReply(request)
+}
+
+export async function generateTranslationCoachReport(options: {
+  language: Language
+  scenarioLabel: string
+  items: TranslationCoachReportItem[]
+}): Promise<TranslationCoachReport> {
+  return withCoachApi(
+    'translation-coach-report',
+    {
+      language: options.language,
+      scenarioLabel: options.scenarioLabel,
+      items: options.items,
+    },
+    async () => {
+      // Lightweight mock for offline / fallback
+      return {
+        overall: '本輪表現：不錯，意思大多有到',
+        averagePerformance: '不錯，意思大多有到',
+        commonIssues: ['有些句子偏直翻中文', '語序偶爾不自然'],
+        moreNaturalPhrases: [
+          'Could you help me with this?',
+          'I’d like to check in, please.',
+          'Where can I pay?',
+        ],
+        reviewSuggestion: '建議多練「請求幫忙」與「飯店入住」句型。',
+        encouragement: '做得很好！把這 3 句自然說法再跟讀幾次，你會更順。',
+      }
+    },
+  )
 }
 
 export async function continueTopicConversation(

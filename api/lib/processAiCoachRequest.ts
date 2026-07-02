@@ -17,6 +17,7 @@ export type AiCoachAction =
   | 'conversation-reply'
   | 'suggest-user-reply'
   | 'correct-sentence'
+  | 'translation-coach-report'
 
 export interface AiCoachErrorBody {
   error: string
@@ -219,6 +220,45 @@ export async function processAiCoachRequest(body: unknown): Promise<AiCoachResul
             explanationZh: result.explanationZh,
           },
         }
+      }
+
+      case 'translation-coach-report': {
+        const { language, scenarioLabel, items } = payload
+        if (!isCoachLanguage(language)) {
+          return invalidBody('Invalid language')
+        }
+        if (typeof scenarioLabel !== 'string' || !scenarioLabel.trim()) {
+          return invalidBody('Missing scenarioLabel')
+        }
+        if (!Array.isArray(items) || items.length === 0) {
+          return invalidBody('Missing items')
+        }
+
+        const normalized = items.map((item) => {
+          if (!item || typeof item !== 'object') {
+            return null
+          }
+          const row = item as Record<string, unknown>
+          const chinese = row.chinese
+          const userAnswer = row.userAnswer
+          const standardAnswer = row.standardAnswer
+          if (typeof chinese !== 'string' || typeof userAnswer !== 'string' || typeof standardAnswer !== 'string') {
+            return null
+          }
+          return { chinese, userAnswer, standardAnswer }
+        })
+
+        if (normalized.some((row) => row === null)) {
+          return invalidBody('Invalid items payload')
+        }
+
+        const { generateTranslationCoachReport } = await import('./coachOpenAi.js')
+        const data = await generateTranslationCoachReport(language, scenarioLabel, normalized as {
+          chinese: string
+          userAnswer: string
+          standardAnswer: string
+        }[])
+        return { status: 200, data }
       }
 
       default:

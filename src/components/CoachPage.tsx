@@ -76,7 +76,7 @@ import { CoachCompletionUpgradeCard } from './pro/CoachCompletionUpgradeCard'
 import { FavoriteReviewOverlay } from './pro/FavoriteReviewOverlay'
 import { WeaknessAnalysisPanel } from './pro/WeaknessAnalysisPanel'
 import { QuickSpeakChallengeOverlay } from './quickSpeakChallenge/QuickSpeakChallengeOverlay'
-import { TranslationChallengeOverlay } from './translationChallenge/TranslationChallengeOverlay'
+import { AiTranslationCoachOverlay } from './translationCoach/AiTranslationCoachOverlay'
 import type { SpeakingChallengeId } from '../data/speakingChallenges'
 import { getFavoriteSentencesByLanguage } from '../utils/favoriteSentenceStorage'
 import {
@@ -161,7 +161,7 @@ export function CoachPage({
   const [aiSource, setAiSource] = useState<CoachAiSource>(() => getCoachAiSource())
   const [surface, setSurface] = useState<CoachSurface>(() => (dailyHandoff ? 'chat' : 'hub'))
   const [quickSpeakOpen, setQuickSpeakOpen] = useState(false)
-  const [translationChallengeOpen, setTranslationChallengeOpen] = useState(false)
+  const [translationCoachOpen, setTranslationCoachOpen] = useState(false)
   const [weaknessPanelOpen, setWeaknessPanelOpen] = useState(false)
   const [favoriteReviewOpen, setFavoriteReviewOpen] = useState(false)
   const [showCompletionUpgrade, setShowCompletionUpgrade] = useState(false)
@@ -838,7 +838,7 @@ export function CoachPage({
         return
       }
       if (challengeId === 'translation') {
-        setTranslationChallengeOpen(true)
+        setTranslationCoachOpen(true)
       }
     },
     [debugMode, isPro, openProUpgrade],
@@ -1473,11 +1473,12 @@ export function CoachPage({
         onClose={() => setQuickSpeakOpen(false)}
       />
 
-      <TranslationChallengeOverlay
-        open={translationChallengeOpen}
+      <AiTranslationCoachOverlay
+        open={translationCoachOpen}
         initialLanguage={language}
-        onClose={() => setTranslationChallengeOpen(false)}
+        onClose={() => setTranslationCoachOpen(false)}
       />
+
 
       {weaknessPanelOpen ? (
         <div className="coach-overlay-backdrop" role="presentation" onClick={() => setWeaknessPanelOpen(false)}>

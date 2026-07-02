@@ -104,6 +104,21 @@ export interface SentenceCorrectionResult {
   naturalnessTipZh?: string
 }
 
+export interface TranslationCoachReportItem {
+  chinese: string
+  userAnswer: string
+  standardAnswer: string
+}
+
+export interface TranslationCoachReport {
+  overall: string
+  averagePerformance: string
+  commonIssues: string[]
+  moreNaturalPhrases: string[]
+  reviewSuggestion: string
+  encouragement: string
+}
+
 /** @deprecated Use SuggestUserReplyResult fields via corrected alias */
 export interface SuggestUserReplyResult {
   original: string

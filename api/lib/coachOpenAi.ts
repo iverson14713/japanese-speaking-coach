@@ -473,3 +473,51 @@ export async function generateCoachSpeakHelp(
     explanationZh: result.explanationZh,
   }
 }
+
+const TRANSLATION_COACH_REPORT_JSON = `只回傳 JSON（所有欄位必填）：
+{
+  "overall": "string（1 句總評，繁中）",
+  "averagePerformance": "string（例如：不錯，意思大多有到）",
+  "commonIssues": ["string"]（1~3 點常見問題，繁中）,
+  "moreNaturalPhrases": ["string", "string", "string"]（3 句更自然說法，用目標語言；不要加羅馬拼音）,
+  "reviewSuggestion": "string（建議複習句型或主題，繁中）",
+  "encouragement": "string（鼓勵一句，繁中）"
+}`
+
+export async function generateTranslationCoachReport(
+  language: CoachLanguage,
+  scenarioLabel: string,
+  items: { chinese: string; userAnswer: string; standardAnswer: string }[],
+): Promise<{
+  overall: string
+  averagePerformance: string
+  commonIssues: string[]
+  moreNaturalPhrases: string[]
+  reviewSuggestion: string
+  encouragement: string
+}> {
+  const system = `${COACH_SYSTEM_PROMPT}
+
+你是旅行口說 App 的「AI 翻譯教練」。你會閱讀使用者在「中翻外語」練習中的 5 題作答（中文題目、使用者回答、標準答案），並回傳一份精簡的總結報告。
+
+要求：
+- 使用繁體中文回饋（moreNaturalPhrases 除外）
+- moreNaturalPhrases 必須是目標語言（${LANGUAGE_LABELS[language]}）的自然句子
+- 不要逐題長篇解釋，重點是總結常見問題與更自然說法
+- 保持內容簡短可讀，避免冗長
+
+${TRANSLATION_COACH_REPORT_JSON}`
+
+  const user = `情境：${scenarioLabel}
+語言：${LANGUAGE_LABELS[language]}
+
+以下是 5 題資料（中文題目 / 使用者回答 / 標準答案）：
+${items
+  .map(
+    (item, index) =>
+      `${index + 1}. 中文：${item.chinese}\n   你的回答：${item.userAnswer || '（空白）'}\n   標準答案：${item.standardAnswer}`,
+  )
+  .join('\n\n')}`
+
+  return callOpenAiJson(system, user)
+}
