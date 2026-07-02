@@ -14,6 +14,15 @@ export const PRO_UNLOCK_FEATURES = [
   '收藏不限',
 ] as const
 
+export const ADVANCED_CHALLENGE_UNLOCK_FEATURES = [
+  '每天 15 回合 AI 教練',
+  'AI 翻譯教練',
+  '今日弱點分析',
+  '收藏句 AI 複習',
+  '情境實戰',
+  '收藏不限',
+] as const
+
 export const FREE_ENTITLEMENTS = [
   '每天 1 場 AI 實戰，共 5 回合',
   '收藏最多 20 句',
@@ -61,8 +70,9 @@ export function getProUpgradeCopy(reason: ProUpgradeReason | null): ProUpgradeCo
       }
     case 'advanced-challenge':
       return {
-        title: '解鎖進階口說挑戰',
-        subtitle: 'Pro 可使用開口翻譯挑戰等進階模式，搭配更多 AI 陪練功能。',
+        title: '解鎖 AI 翻譯教練',
+        subtitle:
+          '一輪 5 題中翻外語練習，AI 會幫你整理常錯句子，修正成更自然的說法。',
         dismissLabel: '稍後再說',
       }
     case 'pro-feature':

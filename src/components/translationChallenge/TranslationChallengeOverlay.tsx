@@ -298,9 +298,9 @@ export function TranslationChallengeOverlay({
           >
             ×
           </button>
-          <h2 className="translation-challenge-overlay__title">開口翻譯挑戰</h2>
+          <h2 className="translation-challenge-overlay__title">AI 翻譯教練</h2>
           <p className="translation-challenge-overlay__subtitle">
-            {LANGUAGE_LABELS[language]} · {TRANSLATION_SCENARIOS.find((item) => item.id === scenario)?.label}
+            中翻外語，一輪 5 題深度練習 · {LANGUAGE_LABELS[language]}
           </p>
         </header>
 
@@ -327,7 +327,7 @@ export function TranslationChallengeOverlay({
               </div>
 
               <p className="translation-challenge-setup__hint">
-                每輪 {QUESTIONS_PER_ROUND} 題 · 準備 {PREP_COUNTDOWN_SECONDS} 秒 · 錄音 {RECORD_SECONDS} 秒
+                每輪 {QUESTIONS_PER_ROUND} 題 · 深度練習 · 準備後開麥 · 可手動結束
               </p>
 
               {!isSupported ? (
@@ -357,7 +357,7 @@ export function TranslationChallengeOverlay({
               <div className="translation-challenge-countdown" aria-hidden="true">
                 <span className="translation-challenge-countdown__num">{prepCountdown || '開始'}</span>
               </div>
-              <p className="translation-challenge-play__hint">準備中，等一下會自動開麥</p>
+              <p className="translation-challenge-play__hint">想一想再開口，等一下會自動開麥</p>
             </section>
           ) : null}
 
@@ -378,7 +378,7 @@ export function TranslationChallengeOverlay({
                 <p className="translation-challenge-recording__hint">靠近麥克風，說出完整句子</p>
               )}
               <button type="button" className="translation-challenge-secondary" onClick={handleManualStop}>
-                提前結束錄音
+                我說完了
               </button>
             </section>
           ) : null}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ProUpgradeReason } from '../context/ProUpgradeContext'
 import {
+  ADVANCED_CHALLENGE_UNLOCK_FEATURES,
   getProUpgradeCopy,
   PRO_UNLOCK_FEATURES,
 } from '../constants/proEntitlements'
@@ -57,6 +58,8 @@ export function ProUpgradeModal({ open, reason, onClose }: ProUpgradeModalProps)
 
   const isBusy = loadingAction !== null
   const copy = getProUpgradeCopy(reason)
+  const unlockFeatures =
+    reason === 'advanced-challenge' ? ADVANCED_CHALLENGE_UNLOCK_FEATURES : PRO_UNLOCK_FEATURES
 
   const handlePurchase = async (plan: 'monthly' | 'yearly') => {
     if (isBusy) {
@@ -122,7 +125,7 @@ export function ProUpgradeModal({ open, reason, onClose }: ProUpgradeModalProps)
 
         <p className="pro-modal__section-label">Pro 解鎖</p>
         <ul className="pro-modal__features">
-          {PRO_UNLOCK_FEATURES.map((feature) => (
+          {unlockFeatures.map((feature) => (
             <li key={feature} className="pro-modal__feature">
               <span className="pro-modal__check" aria-hidden="true">
                 ✓
